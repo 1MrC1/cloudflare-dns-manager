@@ -1,0 +1,213 @@
+/* Responsive Utilities */
+.desktop-only {
+    display: table !important;
+}
+
+.mobile-only {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .desktop-only {
+        display: none !important;
+    }
+
+    .mobile-only {
+        display: grid !important;
+        gap: 0;
+    }
+}
+
+/* Mobile Record Card */
+.record-card {
+    background: white;
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 0 0.25rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+
+.record-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0;
+    cursor: pointer;
+    width: 100%;
+    min-height: 20px;
+    padding: 2px 0;
+}
+
+.record-header-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    padding-right: 8px;
+}
+
+.dns-type {
+    flex-shrink: 0;
+    min-width: 45px;
+    text-align: center;
+}
+
+/* Record type row - 上部 0.5 */
+.record-type-row {
+    height: 0.5rem;
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 0;
+}
+
+.dns-type-label {
+    font-size: 0.5rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    line-height: 0.5rem;
+    margin-left: 32px;
+    background: #fff7ed;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+/* DNS name wrapper - 下部 1.0 主内容的一部分 */
+.dns-name-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+.dns-type-mobile {
+    display: flex;
+    align-items: center;
+}
+
+.dns-type-mobile .badge {
+    font-size: 0.625rem;
+    padding: 0px 6px;
+    font-weight: 600;
+}
+
+.dns-name {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    font-size: 1rem;
+    line-height: 1.2;
+}
+
+.dns-comment {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.record-actions-inline {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    flex-shrink: 0;
+    background: white;
+    padding-left: 4px;
+}
+
+.record-details {
+    padding-top: 0.5rem;
+    padding-bottom: 0.25rem;
+    padding-left: 0;
+    padding-right: 0;
+    margin-top: 0.5rem;
+    background: transparent;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8125rem;
+}
+
+.record-content-cell {
+    flex: 1;
+    font-family: monospace;
+    font-size: 0.8125rem;
+    color: var(--text);
+    word-break: break-all;
+    background: white;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    margin-right: 8px;
+}
+
+.ttl-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 0 0.75rem;
+    height: 100%;
+    flex-shrink: 0;
+    gap: 6px;
+}
+
+.ttl-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: normal;
+}
+
+.ttl-value {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.record-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.meta-group {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
