@@ -781,8 +781,13 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
         const method = editingRecord ? 'PATCH' : 'POST';
         const url = `/api/zones/${zone.id}/dns_records${editingRecord ? `?id=${editingRecord.id}` : ''}`;
 
+        // Ensure proxied is false for non-proxyable types
+        const proxyableTypes = ['A', 'AAAA', 'CNAME'];
+        const finalProxied = proxyableTypes.includes(newRecord.type) ? !!newRecord.proxied : false;
+
+
         // Clean up data for types that don't need it
-        const payload = { ...newRecord };
+        const payload = { ...newRecord, proxied: finalProxied };
         const structuredTypes = ['SRV', 'CAA', 'URI', 'DS', 'TLSA', 'NAPTR', 'SSHFP', 'HTTPS', 'SVCB'];
         if (!structuredTypes.includes(payload.type)) {
             delete payload.data;
@@ -1499,7 +1504,15 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                                 <div style={{ flex: 1 }}>
                                     <CustomSelect
                                         value={newRecord.type}
-                                        onChange={(e) => setNewRecord({ ...newRecord, type: e.target.value })}
+                                        onChange={(e) => {
+                                            const newType = e.target.value;
+                                            const proxyableTypes = ['A', 'AAAA', 'CNAME'];
+                                            setNewRecord({
+                                                ...newRecord,
+                                                type: newType,
+                                                proxied: proxyableTypes.includes(newType) ? newRecord.proxied : false
+                                            });
+                                        }}
                                         options={['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'SRV', 'URI', 'CAA', 'DS', 'TLSA', 'CERT', 'DNSKEY', 'HTTPS', 'LOC', 'NAPTR', 'PTR', 'SMIMEA', 'SSHFP', 'SVCB'].map(t => ({ value: t, label: t }))}
                                     />
                                 </div>
