@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Globe, Server, User, Plus, Trash2, RefreshCw, CheckCircle, ChevronDown, Upload, Download, FileText, Search, Clock, Database } from 'lucide-react';
+import { Globe, Server, User, Plus, Trash2, RefreshCw, CheckCircle, ChevronDown, Upload, Download, FileText, Search, Clock, Database, Shield, Zap } from 'lucide-react';
 import { getAuthHeaders } from '../utils/auth.ts';
 import ConfirmModal from './ConfirmModal.jsx';
 import DnsRecordModal from './DnsRecordModal.jsx';
@@ -10,6 +10,8 @@ import SaasTab from './SaasTab.jsx';
 
 const ScheduledChangesModal = React.lazy(() => import('./ScheduledChangesModal.jsx'));
 const CacheManagement = React.lazy(() => import('./CacheManagement.jsx'));
+const SslManagement = React.lazy(() => import('./SslManagement.jsx'));
+const SpeedOptimization = React.lazy(() => import('./SpeedOptimization.jsx'));
 
 const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, auth, onBack, t, showToast, onAddAccount, onAddSession, onToggleZoneStorage, zoneStorageLoading }, ref) => {
     const [tab, setTab] = useState('dns');
@@ -557,9 +559,63 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                     <Database size={14} />
                     {t('cacheTab')}
                 </button>
+                <button
+                    className="btn"
+                    style={{
+                        background: 'transparent',
+                        color: tab === 'speed' ? 'var(--primary)' : 'var(--text-muted)',
+                        borderBottom: tab === 'speed' ? '2px solid var(--primary)' : 'none',
+                        borderRadius: 0,
+                        padding: '0.75rem 0',
+                        fontWeight: tab === 'speed' ? '700' : '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}
+                    onClick={() => setTab('speed')}
+                >
+                    <Zap size={14} />
+                    {t('speedTab')}
+                </button>
+                <button
+                    className="btn"
+                    style={{
+                        background: 'transparent',
+                        color: tab === 'ssl' ? 'var(--primary)' : 'var(--text-muted)',
+                        borderBottom: tab === 'ssl' ? '2px solid var(--primary)' : 'none',
+                        borderRadius: 0,
+                        padding: '0.75rem 0',
+                        fontWeight: tab === 'ssl' ? '700' : '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}
+                    onClick={() => setTab('ssl')}
+                >
+                    <Shield size={14} />
+                    {t('sslTab')}
+                </button>
             </div>
 
-            {tab === 'cache' ? (
+            {tab === 'speed' ? (
+                <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><RefreshCw size={20} className="spin" /></div>}>
+                    <SpeedOptimization
+                        zone={zone}
+                        getHeaders={getHeaders}
+                        t={t}
+                        showToast={showToast}
+                    />
+                </React.Suspense>
+            ) : tab === 'ssl' ? (
+                <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><RefreshCw size={20} className="spin" /></div>}>
+                    <SslManagement
+                        zone={zone}
+                        getHeaders={getHeaders}
+                        t={t}
+                        showToast={showToast}
+                    />
+                </React.Suspense>
+            ) : tab === 'cache' ? (
                 <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><RefreshCw size={20} className="spin" /></div>}>
                     <CacheManagement
                         zone={zone}
