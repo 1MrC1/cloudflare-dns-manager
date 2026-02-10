@@ -1,6 +1,7 @@
 export async function onRequestGet(context) {
     const { request } = context;
     const clientToken = request.headers.get('X-Cloudflare-Token');
+    const clientEmail = request.headers.get('X-Cloudflare-Email');
 
     if (!clientToken) {
         return new Response(JSON.stringify({
@@ -13,6 +14,38 @@ export async function onRequestGet(context) {
     }
 
     try {
+        // Global API Key mode: both email and token/key are present
+        if (clientEmail) {
+            const verifyResponse = await fetch('https://api.cloudflare.com/client/v4/user', {
+                headers: {
+                    'X-Auth-Email': clientEmail,
+                    'X-Auth-Key': clientToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await verifyResponse.json();
+
+            if (data.success) {
+                return new Response(JSON.stringify({
+                    success: true,
+                    message: 'Token is valid',
+                    type: 'global_key'
+                }), {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } else {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: data.errors?.[0]?.message || 'Invalid Global API Key or email'
+                }), {
+                    status: 401,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+        }
+
+        // API Token mode: only token is present
         const verifyResponse = await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', {
             headers: {
                 'Authorization': `Bearer ${clientToken}`,
@@ -25,7 +58,8 @@ export async function onRequestGet(context) {
         if (data.success && data.result && data.result.status === 'active') {
             return new Response(JSON.stringify({
                 success: true,
-                message: 'Token is valid'
+                message: 'Token is valid',
+                type: 'api_token'
             }), {
                 headers: { 'Content-Type': 'application/json' }
             });

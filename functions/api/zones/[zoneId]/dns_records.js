@@ -44,12 +44,12 @@ function validateDnsRecord(body) {
 }
 
 export async function onRequestGet(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?per_page=100`, {
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     });
@@ -62,7 +62,7 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const body = await context.request.json();
     const username = context.data.user?.username || 'client';
@@ -80,12 +80,12 @@ export async function onRequestPost(context) {
     }
 
     // Snapshot before mutation
-    await saveSnapshot(kv, zoneId, username, 'dns.create', cfToken);
+    await saveSnapshot(kv, zoneId, username, 'dns.create', cfHeaders);
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
@@ -107,7 +107,7 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestPatch(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const url = new URL(context.request.url);
     const recordId = url.searchParams.get('id');
@@ -129,12 +129,12 @@ export async function onRequestPatch(context) {
     }
 
     // Snapshot before mutation
-    await saveSnapshot(kv, zoneId, username, 'dns.update', cfToken);
+    await saveSnapshot(kv, zoneId, username, 'dns.update', cfHeaders);
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${recordId}`, {
         method: 'PATCH',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
@@ -156,7 +156,7 @@ export async function onRequestPatch(context) {
 }
 
 export async function onRequestDelete(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const url = new URL(context.request.url);
     const recordId = url.searchParams.get('id');
@@ -166,12 +166,12 @@ export async function onRequestDelete(context) {
     if (!recordId) return new Response('Missing ID', { status: 400 });
 
     // Snapshot before mutation
-    await saveSnapshot(kv, zoneId, username, 'dns.delete', cfToken);
+    await saveSnapshot(kv, zoneId, username, 'dns.delete', cfHeaders);
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${recordId}`, {
         method: 'DELETE',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     });

@@ -38,14 +38,14 @@ export async function onRequestGet(context) {
     }
 
     // Otherwise list all accounts (without actual token values)
-    const accounts = tokens.map(t => ({ id: t.id, name: t.name, source: 'kv' }));
+    const accounts = tokens.map(t => ({ id: t.id, name: t.name, type: t.type || 'api_token', source: 'kv' }));
 
     return new Response(JSON.stringify({ accounts }), {
         headers: { 'Content-Type': 'application/json' }
     });
 }
 
-// POST: Save a CF_API_TOKEN to user's token list
+// POST: Save a CF API Token or Global API Key to user's token list
 export async function onRequestPost(context) {
     const { env } = context;
     const kv = env.CF_DNS_KV;
@@ -59,33 +59,63 @@ export async function onRequestPost(context) {
 
     const user = context.data.user || { username: 'admin', role: 'admin' };
     const body = await context.request.json();
-    const { token, accountIndex, name } = body;
+    const { token, accountIndex, name, type, email, key } = body;
 
     // Admin can manage other users' tokens
     const targetUser = body.user;
     const username = (targetUser && user.role === 'admin') ? targetUser : user.username;
 
-    if (!token || token.trim() === '') {
-        return new Response(JSON.stringify({ error: 'Token is required.' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
+    const isGlobalKey = type === 'global_key';
 
-    // Verify the token is valid before saving
-    const verifyRes = await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+    if (isGlobalKey) {
+        // Global API Key requires email and key
+        if (!email || email.trim() === '' || !key || key.trim() === '') {
+            return new Response(JSON.stringify({ error: 'Email and Global API Key are required.' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
         }
-    });
-    const verifyData = await verifyRes.json();
 
-    if (!verifyData.success || !verifyData.result || verifyData.result.status !== 'active') {
-        return new Response(JSON.stringify({ error: 'Invalid or inactive token.' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
+        // Verify the Global API Key via user endpoint
+        const verifyRes = await fetch('https://api.cloudflare.com/client/v4/user', {
+            headers: {
+                'X-Auth-Email': email,
+                'X-Auth-Key': key,
+                'Content-Type': 'application/json'
+            }
         });
+        const verifyData = await verifyRes.json();
+
+        if (!verifyData.success) {
+            return new Response(JSON.stringify({ error: 'Invalid Global API Key or email.' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    } else {
+        // API Token mode
+        if (!token || token.trim() === '') {
+            return new Response(JSON.stringify({ error: 'Token is required.' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Verify the token is valid before saving
+        const verifyRes = await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        const verifyData = await verifyRes.json();
+
+        if (!verifyData.success || !verifyData.result || verifyData.result.status !== 'active') {
+            return new Response(JSON.stringify({ error: 'Invalid or inactive token.' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
     }
 
     // Read existing tokens
@@ -95,12 +125,20 @@ export async function onRequestPost(context) {
     const idx = accountIndex != null ? parseInt(accountIndex) : 0;
     const entryName = (name && name.trim()) ? name.trim() : `Account ${idx}`;
 
+    // Build the entry based on type
+    let newEntry;
+    if (isGlobalKey) {
+        newEntry = { id: idx, name: entryName, email, key, type: 'global_key' };
+    } else {
+        newEntry = { id: idx, name: entryName, token, type: 'api_token' };
+    }
+
     // Update existing or add new
     const existing = tokens.findIndex(t => t.id === idx);
     if (existing >= 0) {
-        tokens[existing] = { id: idx, name: entryName, token };
+        tokens[existing] = newEntry;
     } else {
-        tokens.push({ id: idx, name: entryName, token });
+        tokens.push(newEntry);
     }
 
     await kv.put(`USER_TOKENS:${username}`, JSON.stringify(tokens));

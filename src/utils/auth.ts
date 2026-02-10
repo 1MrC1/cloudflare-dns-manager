@@ -15,7 +15,9 @@ export const getAuthHeaders = (auth: AuthState | null, withType = false): Record
             'Authorization': `Bearer ${auth.token}`,
             'X-Managed-Account-Index': String(auth.currentAccountIndex || 0)
         }
-        : { 'X-Cloudflare-Token': auth.token };
+        : auth.email
+            ? { 'X-Cloudflare-Token': auth.token, 'X-Cloudflare-Email': auth.email }
+            : { 'X-Cloudflare-Token': auth.token };
     if (withType) h['Content-Type'] = 'application/json';
     return h;
 };

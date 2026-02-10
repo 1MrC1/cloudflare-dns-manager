@@ -3,7 +3,7 @@ import { getUserAllowedZones, isZoneAllowed } from './_permissions.js';
 // GET: Search DNS records across all zones
 export async function onRequestGet(context) {
     const { request } = context;
-    const cfToken = context.data.cfToken;
+    const { cfHeaders } = context.data;
     const url = new URL(request.url);
     const query = url.searchParams.get('q') || '';
 
@@ -14,7 +14,7 @@ export async function onRequestGet(context) {
     }
 
     const headers = {
-        'Authorization': `Bearer ${cfToken}`,
+        ...cfHeaders,
         'Content-Type': 'application/json'
     };
 

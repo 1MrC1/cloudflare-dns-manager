@@ -1,12 +1,12 @@
 import { logAudit } from '../../_audit.js';
 
 export async function onRequestGet(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/custom_hostnames?per_page=100`, {
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     });
@@ -19,14 +19,14 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const body = await context.request.json();
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/custom_hostnames`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
@@ -44,7 +44,7 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestDelete(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const url = new URL(context.request.url);
     const hostnameId = url.searchParams.get('id');
@@ -54,7 +54,7 @@ export async function onRequestDelete(context) {
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/custom_hostnames/${hostnameId}`, {
         method: 'DELETE',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     });
@@ -71,7 +71,7 @@ export async function onRequestDelete(context) {
 }
 
 export async function onRequestPatch(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const url = new URL(context.request.url);
     const hostnameId = url.searchParams.get('id');
@@ -82,7 +82,7 @@ export async function onRequestPatch(context) {
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/custom_hostnames/${hostnameId}`, {
         method: 'PATCH',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)

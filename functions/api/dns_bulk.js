@@ -3,12 +3,12 @@ import { validateDnsRecord } from './_validate.js';
 import { getUserAllowedZones, isZoneAllowed } from './_permissions.js';
 
 export async function onRequestPost(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const username = context.data.user?.username || 'client';
     const env = context.env;
 
     const headers = {
-        'Authorization': `Bearer ${cfToken}`,
+        ...cfHeaders,
         'Content-Type': 'application/json'
     };
 

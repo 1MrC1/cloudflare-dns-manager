@@ -141,10 +141,10 @@ export async function onRequestGet(context) {
         let toRecords;
         if (toKey === 'live') {
             // Fetch current live DNS records from Cloudflare
-            const { cfToken } = context.data;
+            const { cfHeaders } = context.data;
             const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?per_page=1000`, {
                 headers: {
-                    'Authorization': `Bearer ${cfToken}`,
+                    ...cfHeaders,
                     'Content-Type': 'application/json'
                 }
             });
@@ -243,7 +243,7 @@ export async function onRequestGet(context) {
 
 // POST: Rollback to a snapshot
 export async function onRequestPost(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const kv = context.env.CF_DNS_KV;
     const username = context.data.user?.username || 'client';
@@ -278,12 +278,12 @@ export async function onRequestPost(context) {
     const targetRecords = snapshot.records || [];
 
     // Snapshot current state before rollback
-    await saveSnapshot(kv, zoneId, username, 'dns.rollback', cfToken);
+    await saveSnapshot(kv, zoneId, username, 'dns.rollback', cfHeaders);
 
     // Fetch current records
     const currentRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?per_page=1000`, {
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     });
@@ -309,8 +309,8 @@ export async function onRequestPost(context) {
     }
 
     const results = { deleted: 0, created: 0, updated: 0, errors: [] };
-    const cfHeaders = {
-        'Authorization': `Bearer ${cfToken}`,
+    const cfHeadersWithCt = {
+        ...cfHeaders,
         'Content-Type': 'application/json'
     };
 
@@ -319,7 +319,7 @@ export async function onRequestPost(context) {
         if (!targetMap.has(id)) {
             const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${id}`, {
                 method: 'DELETE',
-                headers: cfHeaders
+                headers: cfHeadersWithCt
             });
             const d = await res.json();
             if (d.success) {
@@ -350,7 +350,7 @@ export async function onRequestPost(context) {
             }
             const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
                 method: 'POST',
-                headers: cfHeaders,
+                headers: cfHeadersWithCt,
                 body: JSON.stringify(createBody)
             });
             const d = await res.json();
@@ -391,7 +391,7 @@ export async function onRequestPost(context) {
                 }
                 const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${id}`, {
                     method: 'PUT',
-                    headers: cfHeaders,
+                    headers: cfHeadersWithCt,
                     body: JSON.stringify(updateBody)
                 });
                 const d = await res.json();

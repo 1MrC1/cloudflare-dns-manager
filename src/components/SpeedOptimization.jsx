@@ -38,6 +38,7 @@ const SETTINGS_META = [
 const SpeedOptimization = ({ zone, getHeaders, t, showToast }) => {
     const [settings, setSettings] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
     const [bulkLoading, setBulkLoading] = useState(false);
     const [bulkResults, setBulkResults] = useState(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -45,17 +46,19 @@ const SpeedOptimization = ({ zone, getHeaders, t, showToast }) => {
 
     const fetchSettings = useCallback(async () => {
         setLoading(true);
+        setFetchError(null);
         try {
             const res = await fetch(`/api/zones/${zone.id}/speed`, { headers: getHeaders() });
             const data = await res.json();
             if (data.success) {
                 setSettings(data.settings);
             } else {
-                showToast(data.errors?.[0]?.message || t('errorOccurred'), 'error');
+                const msg = data.errors?.[0]?.message || data.error || t('errorOccurred');
+                setFetchError(msg);
             }
         } catch (e) {
             console.error('Failed to fetch speed settings:', e);
-            showToast(t('errorOccurred'), 'error');
+            setFetchError(t('errorOccurred'));
         }
         setLoading(false);
     }, [zone.id]);
@@ -170,10 +173,38 @@ const SpeedOptimization = ({ zone, getHeaders, t, showToast }) => {
         </button>
     );
 
-    if (loading && !settings) {
+    if (loading && !settings && !fetchError) {
         return (
             <div style={{ padding: '2rem', textAlign: 'center' }}>
                 <RefreshCw size={20} className="spin" />
+            </div>
+        );
+    }
+
+    if (fetchError && !settings) {
+        return (
+            <div style={{
+                display: 'flex', flexDirection: 'column', gap: '6px',
+                padding: '0.75rem 1rem', borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                fontSize: '0.8125rem', color: 'var(--error, #ef4444)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertTriangle size={16} />
+                    <span>{t('loadSettingsError').replace('{error}', fetchError)}</span>
+                </div>
+                {/auth/i.test(fetchError) && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {t('tokenPermissionHint')}
+                    </span>
+                )}
+                <button
+                    className="btn btn-outline"
+                    onClick={fetchSettings}
+                    style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: '0.75rem', marginTop: '4px' }}
+                >
+                    <RefreshCw size={12} /> {t('refresh') || 'Retry'}
+                </button>
             </div>
         );
     }
@@ -230,25 +261,38 @@ const SpeedOptimization = ({ zone, getHeaders, t, showToast }) => {
                 </div>
 
                 {/* Bulk results */}
-                {bulkResults && (
-                    <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {SETTINGS_META.map(({ key }) => {
-                            const val = bulkResults.results?.[key];
-                            const err = bulkResults.errors?.find(e => e.setting === key);
-                            const success = val !== null && val !== undefined && !err;
-                            return (
-                                <div key={key} style={{
-                                    display: 'flex', alignItems: 'center', gap: '6px',
-                                    fontSize: '0.75rem', color: success ? '#22c55e' : 'var(--error)'
+                {bulkResults && (() => {
+                    const hasAuthError = bulkResults.errors?.some(e => /auth|unauthorized/i.test(e.message));
+                    return (
+                        <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {SETTINGS_META.map(({ key }) => {
+                                const val = bulkResults.results?.[key];
+                                const err = bulkResults.errors?.find(e => e.setting === key);
+                                const success = val !== null && val !== undefined && !err;
+                                return (
+                                    <div key={key} style={{
+                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                        fontSize: '0.75rem', color: success ? '#22c55e' : 'var(--error)'
+                                    }}>
+                                        {success ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                                        <span>{t(`speed_${key}`)}</span>
+                                        {err && <span style={{ color: 'var(--text-muted)' }}>- {err.message}</span>}
+                                    </div>
+                                );
+                            })}
+                            {hasAuthError && (
+                                <div style={{
+                                    marginTop: '8px', padding: '0.5rem 0.75rem', borderRadius: '6px',
+                                    background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    fontSize: '0.75rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px'
                                 }}>
-                                    {success ? <CheckCircle size={14} /> : <XCircle size={14} />}
-                                    <span>{t(`speed_${key}`)}</span>
-                                    {err && <span style={{ color: 'var(--text-muted)' }}>- {err.message}</span>}
+                                    <AlertTriangle size={14} />
+                                    <span>{t('tokenPermissionHint')}</span>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* Advanced / Customize Toggle */}

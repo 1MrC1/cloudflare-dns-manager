@@ -1,10 +1,10 @@
 export async function onRequestGet(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/custom_hostnames/fallback_origin`, {
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     });
@@ -17,14 +17,14 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPut(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const body = await context.request.json();
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/custom_hostnames/fallback_origin`, {
         method: 'PUT',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)

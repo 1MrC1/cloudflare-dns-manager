@@ -3,6 +3,7 @@
 // Can be called by a Cron Trigger or manually by an admin
 
 import { fireWebhook } from './_webhook.js';
+import { buildCfHeaders } from './_cf-api.js';
 
 export async function onRequestPost(context) {
     const { env } = context;
@@ -38,22 +39,26 @@ export async function onRequestPost(context) {
 
         let modified = false;
 
-        // Resolve the CF token for this user
-        let cfToken = null;
+        // Resolve the CF token/key for this user
+        let cfHeaders = null;
+        let tokenEntry = null;
         const tokensJson = await kv.get(`USER_TOKENS:${username}`);
         if (tokensJson) {
             const tokens = JSON.parse(tokensJson);
             // Use the first available token (account index 0)
-            const entry = tokens.find(t => t.id === 0) || tokens[0];
-            if (entry) cfToken = entry.token;
+            tokenEntry = tokens.find(t => t.id === 0) || tokens[0];
         }
 
         // Fallback: env vars (for admin)
-        if (!cfToken && username === 'admin') {
-            cfToken = env.CF_API_TOKEN;
+        if (!tokenEntry && username === 'admin' && env.CF_API_TOKEN) {
+            tokenEntry = { token: env.CF_API_TOKEN };
         }
 
-        if (!cfToken) {
+        if (tokenEntry) {
+            cfHeaders = buildCfHeaders(tokenEntry);
+        }
+
+        if (!cfHeaders) {
             // Mark all monitors as failed due to missing token
             for (const monitor of monitors) {
                 if (!monitor.enabled) continue;
@@ -96,7 +101,7 @@ export async function onRequestPost(context) {
                 const apiUrl = `https://api.cloudflare.com/client/v4/zones/${monitor.zoneId}/dns_records?type=${encodeURIComponent(monitor.recordType)}&name=${encodeURIComponent(monitor.recordName)}`;
                 const res = await fetch(apiUrl, {
                     headers: {
-                        'Authorization': `Bearer ${cfToken}`,
+                        ...cfHeaders,
                         'Content-Type': 'application/json'
                     }
                 });

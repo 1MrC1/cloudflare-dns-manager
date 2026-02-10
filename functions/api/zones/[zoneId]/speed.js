@@ -3,21 +3,21 @@ import { fireWebhook } from '../../_webhook.js';
 
 const SPEED_SETTINGS = ['rocket_loader', 'minify', 'brotli', 'early_hints', 'h2_prioritization', '0rtt'];
 
-async function cfGet(cfToken, zoneId, setting) {
+async function cfGet(cfHeaders, zoneId, setting) {
     const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/settings/${setting}`, {
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     });
     return res.json();
 }
 
-async function cfPatch(cfToken, zoneId, setting, value) {
+async function cfPatch(cfHeaders, zoneId, setting, value) {
     const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/settings/${setting}`, {
         method: 'PATCH',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({ value })
@@ -26,12 +26,12 @@ async function cfPatch(cfToken, zoneId, setting, value) {
 }
 
 export async function onRequestGet(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
 
     try {
         const results = await Promise.all(
-            SPEED_SETTINGS.map(setting => cfGet(cfToken, zoneId, setting))
+            SPEED_SETTINGS.map(setting => cfGet(cfHeaders, zoneId, setting))
         );
 
         const settings = {};
@@ -63,7 +63,7 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const body = await context.request.json();
     const username = context.data.user?.username || 'client';
@@ -83,7 +83,7 @@ export async function onRequestPost(context) {
 
         try {
             const patchResults = await Promise.all(
-                SPEED_SETTINGS.map(setting => cfPatch(cfToken, zoneId, setting, enableValues[setting]))
+                SPEED_SETTINGS.map(setting => cfPatch(cfHeaders, zoneId, setting, enableValues[setting]))
             );
 
             const results = {};
@@ -135,7 +135,7 @@ export async function onRequestPost(context) {
 
         try {
             const patchResults = await Promise.all(
-                SPEED_SETTINGS.map(setting => cfPatch(cfToken, zoneId, setting, disableValues[setting]))
+                SPEED_SETTINGS.map(setting => cfPatch(cfHeaders, zoneId, setting, disableValues[setting]))
             );
 
             const results = {};
@@ -186,7 +186,7 @@ export async function onRequestPost(context) {
         }
 
         try {
-            const data = await cfPatch(cfToken, zoneId, setting, value);
+            const data = await cfPatch(cfHeaders, zoneId, setting, value);
 
             if (data.success) {
                 const valueStr = typeof value === 'object' ? JSON.stringify(value) : value;

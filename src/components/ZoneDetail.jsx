@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Globe, Server, User, Plus, Trash2, RefreshCw, CheckCircle, ChevronDown, Upload, Download, FileText, Search, Clock, Database, Shield, Zap } from 'lucide-react';
+import { Globe, Server, User, Plus, Trash2, RefreshCw, CheckCircle, ChevronDown, Upload, Download, FileText, Search, Clock, Database, Shield, Zap, Unlink, MoreVertical } from 'lucide-react';
 import { getAuthHeaders } from '../utils/auth.ts';
 import ConfirmModal from './ConfirmModal.jsx';
 import DnsRecordModal from './DnsRecordModal.jsx';
@@ -13,7 +13,7 @@ const CacheManagement = React.lazy(() => import('./CacheManagement.jsx'));
 const SslManagement = React.lazy(() => import('./SslManagement.jsx'));
 const SpeedOptimization = React.lazy(() => import('./SpeedOptimization.jsx'));
 
-const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, auth, onBack, t, showToast, onAddAccount, onAddSession, onToggleZoneStorage, zoneStorageLoading }, ref) => {
+const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, auth, onBack, t, showToast, onAddAccount, onAddSession, onToggleZoneStorage, zoneStorageLoading, onUnbindZone }, ref) => {
     const [tab, setTab] = useState('dns');
     const [records, setRecords] = useState([]);
     const [hostnames, setHostnames] = useState([]);
@@ -45,6 +45,14 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
     const [showZoneSelector, setShowZoneSelector] = useState(false);
     const zoneSelectorRef = useRef(null);
 
+    // Zone actions (delete/unbind) state
+    const [showZoneActions, setShowZoneActions] = useState(false);
+    const zoneActionsRef = useRef(null);
+    const [showDeleteZone, setShowDeleteZone] = useState(false);
+    const [deleteZoneConfirm, setDeleteZoneConfirm] = useState('');
+    const [deleteZoneLoading, setDeleteZoneLoading] = useState(false);
+    const [showUnbindConfirm, setShowUnbindConfirm] = useState(false);
+
     // Expose openAddRecord to parent via ref
     useImperativeHandle(ref, () => ({
         openAddRecord: () => { setEditingRecord(null); setShowDNSModal(true); }
@@ -68,6 +76,20 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
         };
     }, [showZoneSelector]);
 
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (zoneActionsRef.current && !zoneActionsRef.current.contains(event.target)) {
+                setShowZoneActions(false);
+            }
+        }
+        if (showZoneActions) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [showZoneActions]);
+
     // Lock body scroll when any modal is open
     useEffect(() => {
         const anyModalOpen = showDNSModal || showBulkImportModal || confirmModal.show || showScheduledModal;
@@ -82,6 +104,30 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
     }, [showDNSModal, showBulkImportModal, confirmModal.show, showScheduledModal]);
 
     const getHeaders = (withType = false) => getAuthHeaders(auth, withType);
+
+    const handleDeleteZone = async () => {
+        if (deleteZoneConfirm !== zone.name) return;
+        setDeleteZoneLoading(true);
+        try {
+            const res = await fetch(`/api/zones/${zone.id}`, {
+                method: 'DELETE',
+                headers: getHeaders(true)
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(t('zoneDeleted'), 'success');
+                setShowDeleteZone(false);
+                setDeleteZoneConfirm('');
+                onRefreshZones();
+            } else {
+                showToast(data.errors?.[0]?.message || t('zoneDeleteFailed'), 'error');
+            }
+        } catch (err) {
+            showToast(t('zoneDeleteFailed'), 'error');
+        } finally {
+            setDeleteZoneLoading(false);
+        }
+    };
 
     const fetchScheduledCount = async () => {
         if (auth.mode !== 'server') return;
@@ -358,6 +404,10 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                         aria-haspopup="true"
                     >
                         <h1 style={{ cursor: 'pointer', fontSize: '1.5rem', margin: 0, lineHeight: 1 }}>{zone.name}</h1>
+                        {zone._accountType === 'global_key'
+                            ? <span className="badge" style={{ fontSize: '0.6rem', padding: '2px 6px', background: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed' }}>{t('globalKeyBadge')}</span>
+                            : <span className="badge" style={{ fontSize: '0.6rem', padding: '2px 6px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb' }}>{t('apiTokenBadge')}</span>
+                        }
                         <ChevronDown size={24} color="var(--text-muted)" style={{ transform: showZoneSelector ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
                     </button>
 
@@ -423,6 +473,52 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                         </button>
                     )}
 
+                    <div style={{ position: 'relative' }} ref={zoneActionsRef}>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowZoneActions(!showZoneActions); }}
+                            title={t('zoneActions')}
+                            style={{
+                                display: 'flex', alignItems: 'center',
+                                padding: '3px 6px', borderRadius: '6px', cursor: 'pointer',
+                                border: '1px solid var(--border)',
+                                background: 'transparent',
+                                color: 'var(--text-muted)',
+                                transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                            <MoreVertical size={14} />
+                        </button>
+                        {showZoneActions && (
+                            <div className="glass-card fade-in" style={{
+                                position: 'absolute', top: '120%', right: 0, zIndex: 100,
+                                minWidth: '180px', padding: '0.25rem',
+                            }}>
+                                <button
+                                    className="unstyled"
+                                    onClick={() => { setShowZoneActions(false); setShowUnbindConfirm(true); }}
+                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <Unlink size={14} />
+                                    {t('unbindZone')}
+                                </button>
+                                <button
+                                    className="unstyled"
+                                    onClick={() => { setShowZoneActions(false); setShowDeleteZone(true); setDeleteZoneConfirm(''); }}
+                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', width: '100%' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--error-bg)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <Trash2 size={14} />
+                                    {t('deleteZone')}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
                     {showZoneSelector && (
                         <div className="glass-card fade-in" style={{
                             position: 'absolute',
@@ -471,11 +567,15 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                                         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--hover-bg)'; }}
                                         onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                                     >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                             <span style={{ fontWeight: isActive ? 600 : 400, fontSize: '0.875rem' }}>{z.name}</span>
                                             <span className={`badge ${z.status === 'active' ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: '0.6rem', padding: '1px 4px' }}>
                                                 {t('status' + z.status.charAt(0).toUpperCase() + z.status.slice(1))}
                                             </span>
+                                            {z._accountType === 'global_key'
+                                                ? <span className="badge" style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed' }}>{t('globalKeyBadge')}</span>
+                                                : <span className="badge" style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb' }}>{t('apiTokenBadge')}</span>
+                                            }
                                             {z._localKey && <span className="badge badge-orange" style={{ fontSize: '0.55rem', padding: '1px 4px' }}>{t('localBadge')}</span>}
                                         </div>
                                         {isActive && <CheckCircle size={14} />}
@@ -795,6 +895,72 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                         onClose={() => { setShowScheduledModal(false); fetchScheduledCount(); }}
                     />
                 </React.Suspense>
+            )}
+
+            {/* Unbind Zone Confirmation Modal */}
+            {showUnbindConfirm && (
+                <div className="modal-overlay" style={{ zIndex: 2000 }}
+                    onClick={(e) => { if (e.target === e.currentTarget) setShowUnbindConfirm(false); }}>
+                    <div className="glass-card fade-in modal-content" role="dialog" aria-label={t('unbindZone')} style={{ padding: '2rem', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+                        <div style={{ width: '48px', height: '48px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                            <Unlink size={24} color="#d97706" />
+                        </div>
+                        <h2 style={{ marginBottom: '0.75rem', fontSize: '1.1rem' }}>{t('unbindZone')}</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.6' }}>
+                            {t('unbindZoneDesc')}
+                        </p>
+                        <p style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '1.25rem' }}>{zone.name}</p>
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowUnbindConfirm(false)}>{t('cancel')}</button>
+                            <button
+                                className="btn btn-primary"
+                                style={{ flex: 1, background: '#d97706' }}
+                                onClick={() => { setShowUnbindConfirm(false); onUnbindZone(zone.id); }}
+                            >
+                                {t('unbindZone')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Zone Confirmation Modal */}
+            {showDeleteZone && (
+                <div className="modal-overlay" style={{ zIndex: 2000 }}
+                    onClick={(e) => { if (e.target === e.currentTarget) { setShowDeleteZone(false); setDeleteZoneConfirm(''); } }}>
+                    <div className="glass-card fade-in modal-content" role="dialog" aria-label={t('deleteZone')} style={{ padding: '2rem', maxWidth: '440px', width: '90%', textAlign: 'center' }}>
+                        <div style={{ width: '48px', height: '48px', background: 'var(--error-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                            <Trash2 size={24} color="var(--error)" />
+                        </div>
+                        <h2 style={{ marginBottom: '0.75rem', fontSize: '1.1rem' }}>{t('deleteZone')}</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.5rem', lineHeight: '1.6' }}>
+                            {t('deleteZoneWarning')}
+                        </p>
+                        <p style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
+                            {t('deleteZoneTypeConfirm').replace('{zone}', zone.name)}
+                        </p>
+                        <input
+                            type="text"
+                            value={deleteZoneConfirm}
+                            onChange={(e) => setDeleteZoneConfirm(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && deleteZoneConfirm === zone.name) handleDeleteZone(); }}
+                            placeholder={zone.name}
+                            style={{ width: '100%', marginBottom: '1.25rem', textAlign: 'center', fontWeight: 600 }}
+                            autoFocus
+                        />
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => { setShowDeleteZone(false); setDeleteZoneConfirm(''); }}>{t('cancel')}</button>
+                            <button
+                                className="btn btn-primary"
+                                style={{ flex: 1, background: 'var(--error)', opacity: deleteZoneConfirm === zone.name ? 1 : 0.5 }}
+                                disabled={deleteZoneConfirm !== zone.name || deleteZoneLoading}
+                                onClick={handleDeleteZone}
+                            >
+                                {deleteZoneLoading ? <RefreshCw className="spin" size={14} /> : t('deleteZone')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div >
     );

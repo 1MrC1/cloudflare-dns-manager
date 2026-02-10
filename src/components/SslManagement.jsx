@@ -7,6 +7,7 @@ const SslManagement = ({ zone, getHeaders, t, showToast }) => {
     const [minTls, setMinTls] = useState(null);
     const [autoRewrites, setAutoRewrites] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
     const [updatingSsl, setUpdatingSsl] = useState(false);
     const [updatingHttps, setUpdatingHttps] = useState(false);
     const [updatingTls, setUpdatingTls] = useState(false);
@@ -14,6 +15,7 @@ const SslManagement = ({ zone, getHeaders, t, showToast }) => {
 
     const fetchSettings = useCallback(async () => {
         setLoading(true);
+        setFetchError(null);
         try {
             const res = await fetch(`/api/zones/${zone.id}/ssl`, { headers: getHeaders() });
             const data = await res.json();
@@ -22,9 +24,13 @@ const SslManagement = ({ zone, getHeaders, t, showToast }) => {
                 setAlwaysHttps(data.always_use_https?.value || 'off');
                 setMinTls(data.min_tls_version?.value || '1.0');
                 setAutoRewrites(data.automatic_https_rewrites?.value || 'off');
+            } else {
+                const msg = data.errors?.[0]?.message || data.error || t('errorOccurred');
+                setFetchError(msg);
             }
         } catch (e) {
             console.error('Failed to fetch SSL settings:', e);
+            setFetchError(t('errorOccurred'));
         }
         setLoading(false);
     }, [zone.id]);
@@ -137,10 +143,38 @@ const SslManagement = ({ zone, getHeaders, t, showToast }) => {
         { value: '1.3', label: 'TLS 1.3' },
     ];
 
-    if (loading) {
+    if (loading && !fetchError) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '3rem' }}>
                 <RefreshCw size={24} className="spin" style={{ color: 'var(--primary)' }} />
+            </div>
+        );
+    }
+
+    if (fetchError) {
+        return (
+            <div style={{
+                display: 'flex', flexDirection: 'column', gap: '6px',
+                padding: '0.75rem 1rem', borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                fontSize: '0.8125rem', color: 'var(--error, #ef4444)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertTriangle size={16} />
+                    <span>{t('loadSettingsError').replace('{error}', fetchError)}</span>
+                </div>
+                {/auth/i.test(fetchError) && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {t('tokenPermissionHint')}
+                    </span>
+                )}
+                <button
+                    className="btn btn-outline"
+                    onClick={fetchSettings}
+                    style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: '0.75rem', marginTop: '4px' }}
+                >
+                    <RefreshCw size={12} /> {t('refresh') || 'Retry'}
+                </button>
             </div>
         );
     }

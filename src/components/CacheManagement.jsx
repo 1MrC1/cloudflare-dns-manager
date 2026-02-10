@@ -4,6 +4,7 @@ import { RefreshCw, ToggleLeft, ToggleRight, Trash2, Link, AlertTriangle } from 
 const CacheManagement = ({ zone, getHeaders, t, showToast, openConfirm }) => {
     const [devMode, setDevMode] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
     const [toggling, setToggling] = useState(false);
     const [purgingAll, setPurgingAll] = useState(false);
     const [purgingUrls, setPurgingUrls] = useState(false);
@@ -13,15 +14,22 @@ const CacheManagement = ({ zone, getHeaders, t, showToast, openConfirm }) => {
 
     const fetchStatus = useCallback(async () => {
         setLoading(true);
+        setFetchError(null);
         try {
             const res = await fetch(`/api/zones/${zone.id}/cache`, { headers: getHeaders() });
             const data = await res.json();
-            if (data.success && data.development_mode) {
-                setDevMode(data.development_mode);
-                setCountdown(data.development_mode.time_remaining || 0);
+            if (data.success) {
+                if (data.development_mode) {
+                    setDevMode(data.development_mode);
+                    setCountdown(data.development_mode.time_remaining || 0);
+                }
+            } else {
+                const msg = data.errors?.[0]?.message || data.error || t('errorOccurred');
+                setFetchError(msg);
             }
         } catch (e) {
             console.error('Failed to fetch cache status:', e);
+            setFetchError(t('errorOccurred'));
         }
         setLoading(false);
     }, [zone.id]);
@@ -142,6 +150,31 @@ const CacheManagement = ({ zone, getHeaders, t, showToast, openConfirm }) => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {fetchError && (
+                <div style={{
+                    display: 'flex', flexDirection: 'column', gap: '6px',
+                    padding: '0.75rem 1rem', borderRadius: '8px',
+                    background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                    fontSize: '0.8125rem', color: 'var(--error, #ef4444)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <AlertTriangle size={16} />
+                        <span>{t('loadSettingsError').replace('{error}', fetchError)}</span>
+                    </div>
+                    {/auth/i.test(fetchError) && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {t('tokenPermissionHint')}
+                        </span>
+                    )}
+                    <button
+                        className="btn btn-outline"
+                        onClick={fetchStatus}
+                        style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: '0.75rem', marginTop: '4px' }}
+                    >
+                        <RefreshCw size={12} /> {t('refresh') || 'Retry'}
+                    </button>
+                </div>
+            )}
             {/* Development Mode */}
             <div className="glass-card" style={{ padding: '1.25rem', background: 'var(--subtle-bg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>

@@ -1,14 +1,14 @@
 import { logAudit } from '../../_audit.js';
 
 export async function onRequestPost(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const body = await context.request.json();
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/batch`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)

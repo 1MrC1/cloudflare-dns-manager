@@ -328,7 +328,7 @@ const App = () => {
                 const cacheKey = `local:${token}`;
                 if (batchCache.has(cacheKey)) {
                     promises.push(batchCache.get(cacheKey).then(zones =>
-                        zones.map(z => ({ ...z, _localKey: key, _owner: key }))
+                        zones.map(z => ({ ...z, _localKey: key, _owner: key, _accountType: 'api_token' }))
                     ));
                     continue;
                 }
@@ -341,7 +341,7 @@ const App = () => {
                     return [];
                 }).catch((err) => { console.error(`Failed to fetch zones for local token ${key}:`, err); return []; });
                 batchCache.set(cacheKey, fetchPromise);
-                promises.push(fetchPromise.then(zones => zones.map(z => ({ ...z, _localKey: key, _owner: key }))));
+                promises.push(fetchPromise.then(zones => zones.map(z => ({ ...z, _localKey: key, _owner: key, _accountType: 'api_token' }))));
             }
         } else {
             // Server mode: use JWT + managed accounts
@@ -368,7 +368,7 @@ const App = () => {
                     }
                     sessionPromises.push(
                         batchCache.get(cacheKey).then(zones =>
-                            zones.map(z => ({ ...z, _sessionIdx: si, _accountIdx: 0, _owner: session.username }))
+                            zones.map(z => ({ ...z, _sessionIdx: si, _accountIdx: 0, _owner: session.username, _accountType: authData.email ? 'global_key' : 'api_token' }))
                         )
                     );
                 } else {
@@ -389,7 +389,7 @@ const App = () => {
                         }
                         sessionPromises.push(
                             batchCache.get(cacheKey).then(zones =>
-                                zones.map(z => ({ ...z, _sessionIdx: si, _accountIdx: acc.id, _owner: session.username }))
+                                zones.map(z => ({ ...z, _sessionIdx: si, _accountIdx: acc.id, _owner: session.username, _accountType: acc.type || 'api_token' }))
                             )
                         );
                     }
@@ -413,7 +413,11 @@ const App = () => {
             }
         }
 
-        const sortedZones = uniqueZones.sort((a, b) => new Date(b.modified_on) - new Date(a.modified_on));
+        // Filter out hidden (unbound) zones
+        const hiddenZones = JSON.parse(localStorage.getItem('hidden_zones') || '[]');
+        const visibleZones = hiddenZones.length > 0 ? uniqueZones.filter(z => !hiddenZones.includes(z.id)) : uniqueZones;
+
+        const sortedZones = visibleZones.sort((a, b) => new Date(b.modified_on) - new Date(a.modified_on));
         setZones(sortedZones);
 
         if (sortedZones.length > 0) {
@@ -683,6 +687,22 @@ const App = () => {
             showToast(t('tokenSaveFailed'), 'error');
         }
         setStorageToggleLoading(false);
+    };
+
+    const handleUnbindZone = (zoneId) => {
+        const hidden = JSON.parse(localStorage.getItem('hidden_zones') || '[]');
+        if (!hidden.includes(zoneId)) {
+            hidden.push(zoneId);
+            localStorage.setItem('hidden_zones', JSON.stringify(hidden));
+        }
+        // Remove from current zones list and deselect
+        const remaining = zones.filter(z => z.id !== zoneId);
+        setZones(remaining);
+        if (selectedZone?.id === zoneId) {
+            setSelectedZone(remaining.length > 0 ? remaining[0] : null);
+            if (remaining.length > 0) selectZone(remaining[0], auth);
+        }
+        showToast(t('zoneUnbound'), 'success');
     };
 
     const handleToggleZoneStorage = async (zoneObj) => {
@@ -1357,6 +1377,7 @@ const App = () => {
                                 onAddSession={() => setShowAddSession(true)}
                                 onToggleZoneStorage={handleToggleZoneStorage}
                                 zoneStorageLoading={zoneStorageLoading}
+                                onUnbindZone={handleUnbindZone}
                             />
                         </ErrorBoundary>
                     ) : (
@@ -1484,6 +1505,7 @@ const App = () => {
                             onAddSession={() => setShowAddSession(true)}
                             onToggleZoneStorage={auth.mode === 'server' ? handleToggleZoneStorage : null}
                             zoneStorageLoading={zoneStorageLoading}
+                            onUnbindZone={handleUnbindZone}
                         />
                     </ErrorBoundary>
                 ) : (

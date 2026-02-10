@@ -2,6 +2,8 @@
 // POST /api/run-scheduled — execute pending scheduled changes that are due
 // Can be called by a Cron Trigger or manually by an admin
 
+import { buildCfHeaders } from './_cf-api.js';
+
 export async function onRequestPost(context) {
     const { env } = context;
     const kv = env.CF_DNS_KV;
@@ -44,23 +46,25 @@ export async function onRequestPost(context) {
             if (isNaN(scheduledTime) || scheduledTime > now) continue;
 
             // Time to execute this change
-            // Resolve the CF token for this user
-            let cfToken = null;
+            // Resolve the CF token/key for this user
+            let tokenEntry = null;
             const accountIndex = change.accountIndex || 0;
 
             const tokensJson = await kv.get(`USER_TOKENS:${username}`);
             if (tokensJson) {
                 const tokens = JSON.parse(tokensJson);
-                const entry = tokens.find(t => t.id === accountIndex);
-                if (entry) cfToken = entry.token;
+                tokenEntry = tokens.find(t => t.id === accountIndex);
             }
 
             // Fallback: env vars (for admin)
-            if (!cfToken && username === 'admin') {
-                cfToken = accountIndex > 0 ? env[`CF_API_TOKEN${accountIndex}`] : env.CF_API_TOKEN;
+            if (!tokenEntry && username === 'admin') {
+                const envToken = accountIndex > 0 ? env[`CF_API_TOKEN${accountIndex}`] : env.CF_API_TOKEN;
+                if (envToken) tokenEntry = { token: envToken };
             }
 
-            if (!cfToken) {
+            const cfHeaders = tokenEntry ? buildCfHeaders(tokenEntry) : null;
+
+            if (!cfHeaders) {
                 change.status = 'failed';
                 change.error = 'Could not resolve CF API token for this user/account.';
                 change.executedAt = new Date().toISOString();
@@ -76,21 +80,21 @@ export async function onRequestPost(context) {
                     apiResult = await executeCfApi(
                         `https://api.cloudflare.com/client/v4/zones/${change.zoneId}/dns_records`,
                         'POST',
-                        cfToken,
+                        cfHeaders,
                         change.record
                     );
                 } else if (change.action === 'update') {
                     apiResult = await executeCfApi(
                         `https://api.cloudflare.com/client/v4/zones/${change.zoneId}/dns_records/${change.recordId}`,
                         'PATCH',
-                        cfToken,
+                        cfHeaders,
                         change.record
                     );
                 } else if (change.action === 'delete') {
                     apiResult = await executeCfApi(
                         `https://api.cloudflare.com/client/v4/zones/${change.zoneId}/dns_records/${change.recordId}`,
                         'DELETE',
-                        cfToken,
+                        cfHeaders,
                         null
                     );
                 }
@@ -143,11 +147,11 @@ export async function onRequestPost(context) {
     });
 }
 
-async function executeCfApi(url, method, cfToken, body) {
+async function executeCfApi(url, method, cfHeaders, body) {
     const options = {
         method,
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     };

@@ -44,7 +44,7 @@ function validateDnsRecord(record) {
 }
 
 export async function onRequestPost(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const username = context.data.user?.username || 'client';
     const kv = context.env.CF_DNS_KV;
@@ -80,7 +80,7 @@ export async function onRequestPost(context) {
         }
 
         // Snapshot before mutation
-        await saveSnapshot(kv, zoneId, username, 'dns.bulk_import', cfToken);
+        await saveSnapshot(kv, zoneId, username, 'dns.bulk_import', cfHeaders);
 
         let created = 0;
         const errors = [];
@@ -123,7 +123,7 @@ export async function onRequestPost(context) {
                 const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${cfToken}`,
+                        ...cfHeaders,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
@@ -163,10 +163,8 @@ export async function onRequestPost(context) {
     // Fallback: Proxy the multipart form data request (existing BIND file import)
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/import`, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${cfToken}`
-            // Don't set Content-Type, let the browser/fetch handle it for multipart
-        },
+        headers: cfHeaders,
+        // Don't set Content-Type, let the browser/fetch handle it for multipart
         body: context.request.body
     });
 

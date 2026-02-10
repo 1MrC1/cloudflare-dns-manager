@@ -8,6 +8,9 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
     const [username, setUsername] = useState('admin');
     const [password, setPassword] = useState('');
     const [token, setToken] = useState('');
+    const [globalEmail, setGlobalEmail] = useState('');
+    const [globalKey, setGlobalKey] = useState('');
+    const [clientTokenType, setClientTokenType] = useState('api_token'); // 'api_token' | 'global_key'
     const [loginTab, setLoginTab] = useState('server'); // 'server' | 'client' | 'setup' | 'register'
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -144,12 +147,17 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                     setError(errMsg);
                 }
             } else if (loginTab === 'client') {
-                const res = await fetch('/api/verify-token', {
-                    headers: { 'X-Cloudflare-Token': token }
-                });
+                const isGlobal = clientTokenType === 'global_key';
+                const verifyHeaders = isGlobal
+                    ? { 'X-Cloudflare-Token': globalKey, 'X-Cloudflare-Email': globalEmail }
+                    : { 'X-Cloudflare-Token': token };
+                const res = await fetch('/api/verify-token', { headers: verifyHeaders });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    onLogin({ mode: 'client', token: token, remember });
+                    const loginData = isGlobal
+                        ? { mode: 'client', token: globalKey, email: globalEmail, remember }
+                        : { mode: 'client', token: token, remember };
+                    onLogin(loginData);
                 } else {
                     let errMsg = data.message || t('loginFailed');
                     if (errMsg === 'Invalid token') errMsg = t('invalidToken');
@@ -437,6 +445,9 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                                 <input type="text" placeholder={t('setupTokenPlaceholder')} value={setupToken}
                                     onChange={(e) => setSetupToken(e.target.value)} style={{ paddingLeft: '38px', fontFamily: 'monospace', fontSize: '0.8rem' }} required />
                             </div>
+                            <p style={{ fontSize: '0.7rem', marginTop: '0.35rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                {t('tokenRequiredPermissions')}
+                            </p>
                         </div>
                         <div className="input-group">
                             <label>{t('newPassword')}</label>
@@ -499,22 +510,75 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                             </div>
                             </>
                         ) : (
-                            <div className="input-group">
-                                <label>{t('tokenLabel')}</label>
-                                <div style={{ position: 'relative' }}>
-                                    <Shield size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-                                    <input
-                                        type="password"
-                                        placeholder={t('tokenPlaceholder')}
-                                        value={token}
-                                        onChange={(e) => setToken(e.target.value)}
-                                        style={{ paddingLeft: '38px' }}
-                                        required
-                                    />
+                            <div>
+                                {/* API Token / Global API Key sub-tabs */}
+                                <div style={{ display: 'flex', gap: '0', marginBottom: '1rem', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                                    <button type="button"
+                                        onClick={() => { setClientTokenType('api_token'); setError(''); }}
+                                        style={{
+                                            flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.7rem', fontWeight: 600,
+                                            border: 'none', cursor: 'pointer',
+                                            background: clientTokenType === 'api_token' ? 'var(--primary)' : 'transparent',
+                                            color: clientTokenType === 'api_token' ? 'white' : 'var(--text-muted)',
+                                        }}>
+                                        {t('apiTokenTab')}
+                                    </button>
+                                    <button type="button"
+                                        onClick={() => { setClientTokenType('global_key'); setError(''); }}
+                                        style={{
+                                            flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.7rem', fontWeight: 600,
+                                            border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer',
+                                            background: clientTokenType === 'global_key' ? 'var(--primary)' : 'transparent',
+                                            color: clientTokenType === 'global_key' ? 'white' : 'var(--text-muted)',
+                                        }}>
+                                        {t('globalKeyTab')}
+                                    </button>
                                 </div>
-                                <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
-                                    {t('tokenHint')}
-                                </p>
+
+                                {clientTokenType === 'api_token' ? (
+                                    <div className="input-group">
+                                        <label>{t('tokenLabel')}</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <Shield size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                                            <input type="password" placeholder={t('tokenPlaceholder')} value={token}
+                                                onChange={(e) => setToken(e.target.value)} style={{ paddingLeft: '38px' }} required />
+                                        </div>
+                                        <p style={{ fontSize: '0.7rem', marginTop: '0.35rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                            {t('tokenRequiredPermissions')}
+                                        </p>
+                                        <p style={{ fontSize: '0.7rem', marginTop: '0.25rem', color: 'var(--text-muted)' }}>
+                                            {t('tokenHint')}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={{ padding: '0.5rem 0.75rem', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', marginBottom: '0.75rem', fontSize: '0.7rem', color: '#b45309', lineHeight: 1.5 }}>
+                                            {t('globalKeyWarning')}
+                                        </div>
+                                        <div className="input-group">
+                                            <label>{t('globalKeyEmailLabel')}</label>
+                                            <div style={{ position: 'relative' }}>
+                                                <User size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                                                <input type="email" placeholder={t('globalKeyEmailPlaceholder')} value={globalEmail}
+                                                    onChange={(e) => setGlobalEmail(e.target.value)} style={{ paddingLeft: '38px' }} required />
+                                            </div>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>{t('globalKeyLabel')}</label>
+                                            <div style={{ position: 'relative' }}>
+                                                <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                                                <input type="password" placeholder={t('globalKeyPlaceholder')} value={globalKey}
+                                                    onChange={(e) => setGlobalKey(e.target.value)} style={{ paddingLeft: '38px' }} required />
+                                            </div>
+                                        </div>
+                                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                                            {t('globalKeyHint')}{' '}
+                                            <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>
+                                                dash.cloudflare.com/profile/api-tokens
+                                            </a>
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         )}
 

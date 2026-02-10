@@ -1,11 +1,11 @@
 const MAX_SNAPSHOTS = 20;
 const TTL_SECONDS = 86400 * 30; // 30 days
 
-export async function saveSnapshot(kv, zoneId, username, action, cfToken) {
+export async function saveSnapshot(kv, zoneId, username, action, cfHeaders) {
     if (!kv) return;
     try {
         const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?per_page=1000`, {
-            headers: { 'Authorization': `Bearer ${cfToken}`, 'Content-Type': 'application/json' }
+            headers: { ...cfHeaders, 'Content-Type': 'application/json' }
         });
         const data = await res.json();
         if (!data.success) return;

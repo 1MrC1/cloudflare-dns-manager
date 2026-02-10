@@ -1,5 +1,6 @@
 import { checkRateLimit } from './_rate-limit.js';
 import { getUserAllowedZones, isZoneAllowed } from './_permissions.js';
+import { buildCfHeaders } from './_cf-api.js';
 
 // Endpoints that accept non-JSON content types (e.g. multipart form data for file uploads)
 const NON_JSON_ENDPOINTS = [
@@ -46,14 +47,10 @@ export async function onRequest(context) {
     if (method === 'OPTIONS') {
         const headers = {
             'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cloudflare-Token, X-Managed-Account-Index',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cloudflare-Token, X-Cloudflare-Email, X-Managed-Account-Index',
             'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Max-Age': '86400'
         };
-        // Only reflect the origin if it matches the request's own origin (same-site)
-        // For a Cloudflare Pages app the API and frontend share the same origin,
-        // so we reflect the Origin header back. If Origin is absent (same-origin
-        // navigational requests), we omit the ACAO header entirely which is fine.
         if (origin) {
             headers['Access-Control-Allow-Origin'] = origin;
             headers['Vary'] = 'Origin';
@@ -101,11 +98,19 @@ export async function onRequest(context) {
 
     // Get tokens from headers
     const clientToken = request.headers.get('X-Cloudflare-Token');
+    const clientEmail = request.headers.get('X-Cloudflare-Email');
     const authHeader = request.headers.get('Authorization');
 
     // Priority 1: Client Mode (Token provided directly by user)
     if (clientToken) {
-        context.data.cfToken = clientToken;
+        if (clientEmail) {
+            // Global API Key mode
+            context.data.cfHeaders = buildCfHeaders({ type: 'global_key', email: clientEmail, key: clientToken });
+        } else {
+            // API Token mode
+            context.data.cfHeaders = buildCfHeaders({ token: clientToken });
+        }
+        context.data.cfToken = clientToken; // backward compat
         const response = await next();
         return withCorsHeaders(response, origin);
     }
@@ -150,30 +155,31 @@ export async function onRequest(context) {
 
             // Resolve CF token from per-user storage
             const accountIndex = parseInt(request.headers.get('X-Managed-Account-Index') || '0');
-            let serverToken = null;
+            let tokenEntry = null;
 
             if (env.CF_DNS_KV) {
                 const tokensJson = await env.CF_DNS_KV.get(`USER_TOKENS:${username}`);
                 if (tokensJson) {
                     const tokens = JSON.parse(tokensJson);
-                    const entry = tokens.find(t => t.id === accountIndex);
-                    if (entry) serverToken = entry.token;
+                    tokenEntry = tokens.find(t => t.id === accountIndex);
                 }
             }
 
             // Fallback: env vars (for backward compat, admin only)
-            if (!serverToken && username === 'admin') {
-                serverToken = accountIndex > 0 ? env[`CF_API_TOKEN${accountIndex}`] : env.CF_API_TOKEN;
+            if (!tokenEntry && username === 'admin') {
+                const envToken = accountIndex > 0 ? env[`CF_API_TOKEN${accountIndex}`] : env.CF_API_TOKEN;
+                if (envToken) tokenEntry = { token: envToken };
             }
 
-            if (!serverToken) {
+            if (!tokenEntry) {
                 return withCorsHeaders(new Response(JSON.stringify({ error: 'Selected managed account is not configured.' }), {
                     status: 403,
                     headers: { 'Content-Type': 'application/json' }
                 }), origin);
             }
 
-            context.data.cfToken = serverToken;
+            context.data.cfHeaders = buildCfHeaders(tokenEntry);
+            context.data.cfToken = tokenEntry.token || tokenEntry.key; // backward compat
 
             // Zone-level access control for non-admin users
             const zoneMatch = url.pathname.match(/^\/api\/zones\/([^/]+)/);
@@ -181,12 +187,8 @@ export async function onRequest(context) {
                 const allowedZones = await getUserAllowedZones(env.CF_DNS_KV, username);
                 if (allowedZones.length > 0) {
                     const zoneId = zoneMatch[1];
-                    // Fetch zone details from CF API to get the zone name
                     const zoneRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${serverToken}`,
-                            'Content-Type': 'application/json'
-                        }
+                        headers: { ...context.data.cfHeaders, 'Content-Type': 'application/json' }
                     });
                     const zoneData = await zoneRes.json();
                     if (zoneData.success && zoneData.result) {

@@ -1,11 +1,9 @@
 export async function onRequestGet(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/export`, {
-        headers: {
-            'Authorization': `Bearer ${cfToken}`
-        }
+        headers: cfHeaders
     });
 
     if (!response.ok) {

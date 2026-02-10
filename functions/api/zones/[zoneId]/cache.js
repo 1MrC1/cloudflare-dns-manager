@@ -2,12 +2,12 @@ import { logAudit } from '../../_audit.js';
 import { fireWebhook } from '../../_webhook.js';
 
 export async function onRequestGet(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
 
     const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/settings/development_mode`, {
         headers: {
-            'Authorization': `Bearer ${cfToken}`,
+            ...cfHeaders,
             'Content-Type': 'application/json'
         }
     });
@@ -27,7 +27,7 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-    const { cfToken } = context.data;
+    const { cfHeaders } = context.data;
     const { zoneId } = context.params;
     const body = await context.request.json();
     const username = context.data.user?.username || 'client';
@@ -41,7 +41,7 @@ export async function onRequestPost(context) {
         const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/settings/development_mode`, {
             method: 'PATCH',
             headers: {
-                'Authorization': `Bearer ${cfToken}`,
+                ...cfHeaders,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ value: newValue })
@@ -73,7 +73,7 @@ export async function onRequestPost(context) {
         const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${cfToken}`,
+                ...cfHeaders,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ purge_everything: true })
@@ -117,7 +117,7 @@ export async function onRequestPost(context) {
         const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${cfToken}`,
+                ...cfHeaders,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ files: urls })
