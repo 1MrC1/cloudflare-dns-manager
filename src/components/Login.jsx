@@ -288,15 +288,18 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                     <button
                         onClick={(e) => {
                             e.preventDefault();
-                            onLangChange(lang === 'zh' ? 'en' : 'zh');
+                            const cycle = ['zh', 'en', 'ja', 'ko'];
+                            const idx = cycle.indexOf(lang);
+                            onLangChange(cycle[(idx + 1) % cycle.length]);
                         }}
-                        style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'background 0.2s' }}
+                        style={{ border: 'none', background: 'transparent', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', borderRadius: '8px', transition: 'background 0.2s', fontSize: '0.75rem', fontWeight: 600 }}
                         onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                        title={lang === 'zh' ? 'English' : '中文'}
-                        aria-label={lang === 'zh' ? 'Switch to English' : '切换到中文'}
+                        title={{ zh: 'English', en: '日本語', ja: '한국어', ko: '中文' }[lang]}
+                        aria-label={{ zh: 'Switch to English', en: '日本語に切り替え', ja: '한국어로 전환', ko: '切换到中文' }[lang]}
                     >
-                        <Languages size={20} />
+                        <Languages size={18} />
+                        <span>{lang.toUpperCase()}</span>
                     </button>
                 </div>
 

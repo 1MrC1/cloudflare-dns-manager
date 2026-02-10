@@ -496,6 +496,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                         onRollbackComplete={() => fetchDNS()}
                         t={t}
                         showToast={showToast}
+                        records={records}
                     />
                 ) : (
                 <div className="table-container">
