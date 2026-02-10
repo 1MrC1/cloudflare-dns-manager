@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, Server, User, Plus, Trash2, Edit2, RefreshCw, CheckCircle, AlertCircle, X, Search, ChevronDown, Upload, Download, Copy } from 'lucide-react';
+import { Globe, Server, User, Plus, Trash2, Edit2, RefreshCw, CheckCircle, AlertCircle, X, Search, ChevronDown, Upload, Download, Copy, FileText, BookOpen } from 'lucide-react';
 import { getAuthHeaders } from '../utils/auth.ts';
 import CustomSelect from './CustomSelect.jsx';
 
@@ -61,6 +61,18 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
     const [importLoading, setImportLoading] = useState(false);
     const [selectedRecords, setSelectedRecords] = useState(new Set());
     const fileInputRef = useRef(null);
+    const jsonFileInputRef = useRef(null);
+
+    // Template dropdown state
+    const [showTemplates, setShowTemplates] = useState(false);
+    const templateRef = useRef(null);
+
+    // Bulk import modal state
+    const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+    const [bulkImportJson, setBulkImportJson] = useState('');
+    const [bulkImportPreview, setBulkImportPreview] = useState(null);
+    const [bulkImportLoading, setBulkImportLoading] = useState(false);
+    const [bulkImportResult, setBulkImportResult] = useState(null);
 
     const initialSaaS = {
         hostname: '',
@@ -100,9 +112,24 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
 
     const getHeaders = (withType = false) => getAuthHeaders(auth, withType);
 
+    // Close templates dropdown on outside click
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (templateRef.current && !templateRef.current.contains(event.target)) {
+                setShowTemplates(false);
+            }
+        }
+        if (showTemplates) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [showTemplates]);
+
     // Lock body scroll when any modal is open
     useEffect(() => {
-        const anyModalOpen = showDNSModal || showSaaSModal || showVerifyModal || confirmModal.show;
+        const anyModalOpen = showDNSModal || showSaaSModal || showVerifyModal || confirmModal.show || showBulkImportModal;
         if (anyModalOpen) {
             document.body.classList.add('modal-open');
         } else {
@@ -111,7 +138,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
         return () => {
             document.body.classList.remove('modal-open');
         };
-    }, [showDNSModal, showSaaSModal, showVerifyModal, confirmModal.show]);
+    }, [showDNSModal, showSaaSModal, showVerifyModal, confirmModal.show, showBulkImportModal]);
 
     const fetchDNS = async () => {
         setLoading(true);
@@ -456,6 +483,113 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
         e.target.value = ''; // Reset input
     };
 
+    // DNS Record Templates
+    const dnsTemplates = [
+        {
+            key: 'spf',
+            label: t('templateSpf'),
+            record: { type: 'TXT', name: '@', content: 'v=spf1 mx ~all', ttl: 1, proxied: false, comment: '', priority: 10, data: {} }
+        },
+        {
+            key: 'dmarc',
+            label: t('templateDmarc'),
+            record: { type: 'TXT', name: '_dmarc', content: `v=DMARC1; p=none; rua=mailto:dmarc@${zone.name}`, ttl: 1, proxied: false, comment: '', priority: 10, data: {} }
+        },
+        {
+            key: 'google_mx',
+            label: t('templateGoogleMx'),
+            record: { type: 'MX', name: '@', content: 'aspmx.l.google.com', ttl: 1, proxied: false, comment: 'Google Workspace MX (1 of 5)', priority: 1, data: {} }
+        },
+        {
+            key: 'www_cname',
+            label: t('templateWwwCname'),
+            record: { type: 'CNAME', name: 'www', content: zone.name, ttl: 1, proxied: true, comment: '', priority: 10, data: {} }
+        },
+        {
+            key: 'mail_mx',
+            label: t('templateMailMx'),
+            record: { type: 'MX', name: '@', content: `mail.${zone.name}`, ttl: 1, proxied: false, comment: '', priority: 10, data: {} }
+        },
+        {
+            key: 'google_verify',
+            label: t('templateGoogleVerify'),
+            record: { type: 'TXT', name: '@', content: 'google-site-verification=PASTE_CODE_HERE', ttl: 1, proxied: false, comment: '', priority: 10, data: {} }
+        }
+    ];
+
+    const applyTemplate = (template) => {
+        setNewRecord({ ...template.record });
+        setShowTemplates(false);
+        showToast(t('templateApplied'));
+    };
+
+    // Bulk Import functions
+    const parseBulkImportJson = (jsonStr) => {
+        try {
+            const parsed = JSON.parse(jsonStr);
+            const records = parsed.records || parsed;
+            if (!Array.isArray(records)) {
+                return { error: t('invalidJson') };
+            }
+            if (records.length === 0) {
+                return { error: t('noRecordsFound') };
+            }
+            return { records };
+        } catch {
+            return { error: t('invalidJson') };
+        }
+    };
+
+    const handleBulkImportPreview = () => {
+        const result = parseBulkImportJson(bulkImportJson);
+        if (result.error) {
+            showToast(result.error, 'error');
+            setBulkImportPreview(null);
+            return;
+        }
+        setBulkImportPreview(result.records);
+        setBulkImportResult(null);
+    };
+
+    const handleJsonFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            setBulkImportJson(ev.target.result);
+            setBulkImportPreview(null);
+            setBulkImportResult(null);
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
+    const handleBulkImportSubmit = async () => {
+        if (!bulkImportPreview || bulkImportPreview.length === 0) return;
+        setBulkImportLoading(true);
+        setBulkImportResult(null);
+        try {
+            const res = await fetch(`/api/zones/${zone.id}/dns_import`, {
+                method: 'POST',
+                headers: getHeaders(true),
+                body: JSON.stringify({ records: bulkImportPreview })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setBulkImportResult({ created: data.created, total: data.total, errors: data.errors || [] });
+                fetchDNS();
+                if (data.created > 0) {
+                    showToast(t('importResultCreated').replace('{count}', data.created));
+                }
+            } else {
+                showToast(data.error || t('errorOccurred'), 'error');
+            }
+        } catch {
+            showToast(t('errorOccurred'), 'error');
+        }
+        setBulkImportLoading(false);
+    };
+
     const handleBatchDelete = async () => {
         const count = selectedRecords.size;
         if (count === 0) return;
@@ -707,6 +841,10 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                                     <button className="btn btn-outline" onClick={() => fileInputRef.current.click()} disabled={importLoading}>
                                         <Upload size={16} className={importLoading ? 'spin' : ''} />
                                         <span className="btn-text">{t('import')}</span>
+                                    </button>
+                                    <button className="btn btn-outline" onClick={() => { setShowBulkImportModal(true); setBulkImportJson(''); setBulkImportPreview(null); setBulkImportResult(null); }}>
+                                        <FileText size={16} />
+                                        <span className="btn-text">{t('bulkImport')}</span>
                                     </button>
                                     <button className="btn btn-outline" onClick={handleExport}>
                                         <Download size={16} />
@@ -1115,7 +1253,61 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                     onClick={(e) => { if (e.target === e.currentTarget) setShowDNSModal(false); }}
                 >
                     <div className="glass-card fade-in modal-content" role="dialog" aria-label={editingRecord ? t('editRecord') : t('addModalTitle')} style={{ padding: '2rem', maxWidth: '450px', width: '90%', position: 'relative' }}>
-                        <h2 style={{ marginBottom: '1.5rem' }}>{editingRecord ? t('editRecord') : t('addModalTitle')}</h2>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h2 style={{ margin: 0 }}>{editingRecord ? t('editRecord') : t('addModalTitle')}</h2>
+                            {!editingRecord && (
+                                <div ref={templateRef} style={{ position: 'relative' }}>
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline"
+                                        style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        onClick={() => setShowTemplates(!showTemplates)}
+                                    >
+                                        <BookOpen size={14} />
+                                        {t('templates')}
+                                        <ChevronDown size={12} style={{ transform: showTemplates ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
+                                    </button>
+                                    {showTemplates && (
+                                        <div className="glass-card fade-in" style={{
+                                            position: 'absolute',
+                                            top: '110%',
+                                            right: 0,
+                                            zIndex: 100,
+                                            minWidth: '260px',
+                                            padding: '0.25rem',
+                                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15)',
+                                            maxHeight: '300px',
+                                            overflowY: 'auto'
+                                        }}>
+                                            {dnsTemplates.map(tmpl => (
+                                                <div
+                                                    key={tmpl.key}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => applyTemplate(tmpl)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); applyTemplate(tmpl); } }}
+                                                    style={{
+                                                        padding: '0.5rem 0.75rem',
+                                                        cursor: 'pointer',
+                                                        borderRadius: '6px',
+                                                        fontSize: '0.8125rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        transition: 'background 0.1s'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg, #f9fafb)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                >
+                                                    <span className="badge badge-blue" style={{ fontSize: '0.6rem', padding: '1px 4px', flexShrink: 0 }}>{tmpl.record.type}</span>
+                                                    <span>{tmpl.label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <form onSubmit={handleDNSSubmit}>
                             <div className="input-row">
                                 <label>{t('type')}</label>
@@ -1606,6 +1798,144 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                             )}
                         </div>
 
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Import Modal */}
+            {showBulkImportModal && (
+                <div
+                    className="modal-overlay"
+                    onClick={(e) => { if (e.target === e.currentTarget) setShowBulkImportModal(false); }}
+                >
+                    <div className="glass-card fade-in modal-content" role="dialog" aria-label={t('bulkImport')} style={{ padding: '2rem', maxWidth: '600px', width: '90%', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h2 style={{ margin: 0 }}>{t('bulkImport')}</h2>
+                            <button className="btn btn-outline" style={{ padding: '4px', border: 'none' }} onClick={() => setShowBulkImportModal(false)} aria-label="Close">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{t('bulkImportDesc')}</p>
+
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ fontSize: '0.8125rem', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>{t('pasteJson')}</label>
+                            <textarea
+                                value={bulkImportJson}
+                                onChange={(e) => { setBulkImportJson(e.target.value); setBulkImportPreview(null); setBulkImportResult(null); }}
+                                placeholder={t('jsonFormatHint')}
+                                style={{
+                                    width: '100%',
+                                    minHeight: '120px',
+                                    padding: '0.75rem',
+                                    fontSize: '0.8125rem',
+                                    fontFamily: 'monospace',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    resize: 'vertical',
+                                    background: 'var(--card-bg, white)',
+                                    color: 'var(--text)'
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                            <input
+                                type="file"
+                                ref={jsonFileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleJsonFileUpload}
+                                accept=".json"
+                            />
+                            <button type="button" className="btn btn-outline" style={{ fontSize: '0.8125rem' }} onClick={() => jsonFileInputRef.current.click()}>
+                                <Upload size={14} />
+                                {t('uploadJsonFile')}
+                            </button>
+                            <button type="button" className="btn btn-primary" style={{ fontSize: '0.8125rem' }} onClick={handleBulkImportPreview} disabled={!bulkImportJson.trim()}>
+                                <Search size={14} />
+                                {t('previewRecords')}
+                            </button>
+                        </div>
+
+                        {/* Preview Table */}
+                        {bulkImportPreview && bulkImportPreview.length > 0 && (
+                            <div style={{ marginBottom: '1rem' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                                    {bulkImportPreview.length} {t('dnsRecords').toLowerCase()}
+                                </div>
+                                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '6px' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '2px solid var(--border)', position: 'sticky', top: 0, background: 'var(--card-bg, white)' }}>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>#</th>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>{t('type')}</th>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>{t('name')}</th>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>{t('content')}</th>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>TTL</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {bulkImportPreview.map((rec, idx) => (
+                                                <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                    <td style={{ padding: '0.4rem 0.5rem', color: 'var(--text-muted)' }}>{idx + 1}</td>
+                                                    <td style={{ padding: '0.4rem 0.5rem' }}>
+                                                        <span className="badge badge-blue" style={{ fontSize: '0.6rem', padding: '1px 4px' }}>{rec.type}</span>
+                                                    </td>
+                                                    <td style={{ padding: '0.4rem 0.5rem', fontWeight: 500, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.name}</td>
+                                                    <td style={{ padding: '0.4rem 0.5rem', color: 'var(--text-muted)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.content}</td>
+                                                    <td style={{ padding: '0.4rem 0.5rem', color: 'var(--text-muted)' }}>{rec.ttl || 'Auto'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Import Result */}
+                        {bulkImportResult && (
+                            <div style={{
+                                padding: '0.75rem',
+                                borderRadius: '6px',
+                                marginBottom: '1rem',
+                                background: bulkImportResult.errors.length > 0 ? '#fff5f5' : '#f0fdf4',
+                                border: `1px solid ${bulkImportResult.errors.length > 0 ? '#fecaca' : '#bbf7d0'}`
+                            }}>
+                                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: bulkImportResult.errors.length > 0 ? 'var(--error)' : '#16a34a', marginBottom: bulkImportResult.errors.length > 0 ? '0.5rem' : 0 }}>
+                                    {t('importResultCreated').replace('{count}', bulkImportResult.created)}
+                                    {bulkImportResult.errors.length > 0 && (
+                                        <span style={{ marginLeft: '8px' }}>
+                                            | {t('importResultErrors').replace('{count}', bulkImportResult.errors.length)}
+                                        </span>
+                                    )}
+                                </div>
+                                {bulkImportResult.errors.length > 0 && (
+                                    <div style={{ maxHeight: '100px', overflowY: 'auto', fontSize: '0.75rem', color: 'var(--error)' }}>
+                                        {bulkImportResult.errors.map((err, idx) => (
+                                            <div key={idx} style={{ padding: '2px 0' }}>
+                                                #{err.index + 1}: {err.error}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowBulkImportModal(false)}>{t('cancel')}</button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                style={{ flex: 1 }}
+                                onClick={handleBulkImportSubmit}
+                                disabled={!bulkImportPreview || bulkImportPreview.length === 0 || bulkImportLoading}
+                            >
+                                {bulkImportLoading ? (
+                                    <><RefreshCw size={14} className="spin" /> {t('importing')}</>
+                                ) : (
+                                    <><Upload size={14} /> {t('importRecords')}</>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
