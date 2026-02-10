@@ -512,11 +512,11 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                         ) : (
                             <div>
                                 {/* API Token / Global API Key sub-tabs */}
-                                <div style={{ display: 'flex', gap: '0', marginBottom: '1rem', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                                <div className="auth-type-tabs" style={{ display: 'flex', gap: '0', marginBottom: '1rem', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
                                     <button type="button"
                                         onClick={() => { setClientTokenType('api_token'); setError(''); }}
                                         style={{
-                                            flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.7rem', fontWeight: 600,
+                                            flex: 1, padding: '0.5rem 0.5rem', fontSize: '0.75rem', fontWeight: 600,
                                             border: 'none', cursor: 'pointer',
                                             background: clientTokenType === 'api_token' ? 'var(--primary)' : 'transparent',
                                             color: clientTokenType === 'api_token' ? 'white' : 'var(--text-muted)',
@@ -526,7 +526,7 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                                     <button type="button"
                                         onClick={() => { setClientTokenType('global_key'); setError(''); }}
                                         style={{
-                                            flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.7rem', fontWeight: 600,
+                                            flex: 1, padding: '0.5rem 0.5rem', fontSize: '0.75rem', fontWeight: 600,
                                             border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer',
                                             background: clientTokenType === 'global_key' ? 'var(--primary)' : 'transparent',
                                             color: clientTokenType === 'global_key' ? 'white' : 'var(--text-muted)',

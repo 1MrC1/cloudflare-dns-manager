@@ -86,11 +86,11 @@ const AddAccountModal = ({ show, onClose, auth, t, showToast, onAccountAdded }) 
                 </div>
 
                 {/* Token type tabs */}
-                <div style={{ display: 'flex', gap: '0', marginBottom: '1rem', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                <div className="auth-type-tabs" style={{ display: 'flex', gap: '0', marginBottom: '1rem', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
                     <button type="button"
                         onClick={() => { setTokenType('api_token'); setError(''); }}
                         style={{
-                            flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.75rem', fontWeight: 600,
+                            flex: 1, padding: '0.5rem 0.5rem', fontSize: '0.75rem', fontWeight: 600,
                             border: 'none', cursor: 'pointer',
                             background: tokenType === 'api_token' ? 'var(--primary)' : 'transparent',
                             color: tokenType === 'api_token' ? 'white' : 'var(--text-muted)',
@@ -100,7 +100,7 @@ const AddAccountModal = ({ show, onClose, auth, t, showToast, onAccountAdded }) 
                     <button type="button"
                         onClick={() => { setTokenType('global_key'); setError(''); }}
                         style={{
-                            flex: 1, padding: '0.4rem 0.5rem', fontSize: '0.75rem', fontWeight: 600,
+                            flex: 1, padding: '0.5rem 0.5rem', fontSize: '0.75rem', fontWeight: 600,
                             border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer',
                             background: tokenType === 'global_key' ? 'var(--primary)' : 'transparent',
                             color: tokenType === 'global_key' ? 'white' : 'var(--text-muted)',

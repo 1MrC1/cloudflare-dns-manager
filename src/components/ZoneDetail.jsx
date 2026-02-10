@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Globe, Server, User, Plus, Trash2, RefreshCw, CheckCircle, ChevronDown, Upload, Download, FileText, Search, Clock, Database, Shield, Zap, Unlink, MoreVertical } from 'lucide-react';
+import { Globe, Server, Plus, Trash2, RefreshCw, Upload, Download, FileText, Search, Clock, Unlink, MoreVertical, Shield, Key, WifiOff, AlertCircle } from 'lucide-react';
 import { getAuthHeaders } from '../utils/auth.ts';
 import ConfirmModal from './ConfirmModal.jsx';
 import DnsRecordModal from './DnsRecordModal.jsx';
@@ -13,12 +13,12 @@ const CacheManagement = React.lazy(() => import('./CacheManagement.jsx'));
 const SslManagement = React.lazy(() => import('./SslManagement.jsx'));
 const SpeedOptimization = React.lazy(() => import('./SpeedOptimization.jsx'));
 
-const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, auth, onBack, t, showToast, onAddAccount, onAddSession, onToggleZoneStorage, zoneStorageLoading, onUnbindZone }, ref) => {
-    const [tab, setTab] = useState('dns');
+const ZoneDetail = forwardRef(({ zone, auth, tab, onBack, t, showToast, onToggleZoneStorage, zoneStorageLoading, onUnbindZone, onRefreshZones }, ref) => {
     const [records, setRecords] = useState([]);
     const [hostnames, setHostnames] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [error, setError] = useState(null);
     const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null });
     const [showHistory, setShowHistory] = useState(false);
     const [selectedRecords, setSelectedRecords] = useState(new Set());
@@ -41,10 +41,6 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
     // SaaS tab ref for triggering add
     const saasTabRef = useRef(null);
 
-    // Zone Selector State
-    const [showZoneSelector, setShowZoneSelector] = useState(false);
-    const zoneSelectorRef = useRef(null);
-
     // Zone actions (delete/unbind) state
     const [showZoneActions, setShowZoneActions] = useState(false);
     const zoneActionsRef = useRef(null);
@@ -61,20 +57,6 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
     const openConfirm = (title, message, onConfirm) => {
         setConfirmModal({ show: true, title, message, onConfirm });
     };
-
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (zoneSelectorRef.current && !zoneSelectorRef.current.contains(event.target)) {
-                setShowZoneSelector(false);
-            }
-        }
-        if (showZoneSelector) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [showZoneSelector]);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -104,6 +86,14 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
     }, [showDNSModal, showBulkImportModal, confirmModal.show, showScheduledModal]);
 
     const getHeaders = (withType = false) => getAuthHeaders(auth, withType);
+
+    const parseApiError = (status, data, networkError) => {
+        if (networkError) return { type: 'network', message: networkError.message || 'Network error' };
+        if (status === 403) return { type: 'permission', message: data?.errors?.[0]?.message || 'Forbidden' };
+        if (status === 401) return { type: 'auth', message: data?.errors?.[0]?.message || 'Unauthorized' };
+        if (status === 400 && JSON.stringify(data).toLowerCase().includes('invalid api')) return { type: 'auth', message: data?.errors?.[0]?.message || 'Invalid API key' };
+        return { type: 'unknown', message: data?.errors?.[0]?.message || data?.message || `HTTP ${status}` };
+    };
 
     const handleDeleteZone = async () => {
         if (deleteZoneConfirm !== zone.name) return;
@@ -188,38 +178,56 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
 
     const fetchDNS = async () => {
         setLoading(true);
+        setError(null);
         try {
             const res = await fetch(`/api/zones/${zone.id}/dns_records`, { headers: getHeaders() });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                setError(parseApiError(res.status, data));
+                setLoading(false);
+                return;
+            }
             const data = await res.json();
             setRecords((data.result || []).sort((a, b) => new Date(b.modified_on) - new Date(a.modified_on)));
-        } catch (e) { console.error('Failed to fetch DNS records:', e); }
+        } catch (e) {
+            console.error('Failed to fetch DNS records:', e);
+            setError(parseApiError(null, null, e));
+        }
         setLoading(false);
     };
 
     const fetchHostnames = async () => {
         setLoading(true);
+        setError(null);
         try {
             const res = await fetch(`/api/zones/${zone.id}/custom_hostnames`, { headers: getHeaders() });
             if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.message || 'Failed to fetch custom hostnames');
+                const data = await res.json().catch(() => ({}));
+                setError(parseApiError(res.status, data));
+                setLoading(false);
+                return;
             }
             const data = await res.json();
             setHostnames(data.result || []);
         } catch (e) {
             console.error("Error fetching custom hostnames:", e);
+            setError(parseApiError(null, null, e));
         }
         setLoading(false);
     };
 
     useEffect(() => {
         setShowHistory(false);
+        setError(null);
         if (tab === 'dns') {
             fetchDNS();
             setSelectedRecords(new Set());
         }
         if (tab === 'saas') {
             fetchHostnames();
+        }
+        if (tab === 'cache' || tab === 'speed' || tab === 'ssl') {
+            setLoading(false);
         }
         fetchScheduledCount();
     }, [tab, zone.id]);
@@ -389,107 +397,88 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
     return (
         <div className="container">
             <div style={{ marginBottom: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }} ref={zoneSelectorRef}>
-                    <div style={{ padding: '0.25rem', background: 'var(--select-active-bg)', borderRadius: '8px' }}>
+                <div className="zone-header-row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative', flexWrap: 'wrap' }}>
+                    <div className="zone-globe-icon" style={{ padding: '0.25rem', background: 'var(--select-active-bg)', borderRadius: '8px' }}>
                         <Globe size={24} color="var(--primary)" />
                     </div>
 
-                    <button
-                        className="unstyled"
-                        onClick={() => setShowZoneSelector(!showZoneSelector)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', userSelect: 'none' }}
-                        title={t('switchZone')}
-                        aria-label={t('switchZone')}
-                        aria-expanded={showZoneSelector}
-                        aria-haspopup="true"
-                    >
-                        <h1 style={{ cursor: 'pointer', fontSize: '1.5rem', margin: 0, lineHeight: 1 }}>{zone.name}</h1>
-                        {zone._accountType === 'global_key'
-                            ? <span className="badge" style={{ fontSize: '0.6rem', padding: '2px 6px', background: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed' }}>{t('globalKeyBadge')}</span>
-                            : <span className="badge" style={{ fontSize: '0.6rem', padding: '2px 6px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb' }}>{t('apiTokenBadge')}</span>
-                        }
-                        <ChevronDown size={24} color="var(--text-muted)" style={{ transform: showZoneSelector ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
-                    </button>
+                    <h1 className="zone-name-title" style={{ fontSize: '1.5rem', margin: 0, lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zone.name}</h1>
+                    {zone._accountType === 'global_key'
+                        ? <span className="badge zone-type-badge" style={{ fontSize: '0.6rem', padding: '2px 6px', background: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed', flexShrink: 0 }}>{t('globalKeyBadge')}</span>
+                        : <span className="badge zone-type-badge" style={{ fontSize: '0.6rem', padding: '2px 6px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb', flexShrink: 0 }}>{t('apiTokenBadge')}</span>
+                    }
 
-                    {onToggleZoneStorage && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onToggleZoneStorage(zone); }}
-                            disabled={zoneStorageLoading}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '0.25rem',
-                                fontSize: '0.65rem', fontWeight: 600,
-                                padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
-                                border: '1px solid',
-                                borderColor: zone._localKey ? 'var(--primary)' : 'var(--border)',
-                                background: zone._localKey ? 'var(--select-active-bg)' : 'transparent',
-                                color: zone._localKey ? 'var(--primary)' : 'var(--text-muted)',
-                                transition: 'all 0.2s',
-                            }}
-                            title={zone._localKey ? t('uploadToServer') : t('switchToLocal')}
-                        >
-                            {zoneStorageLoading ? <RefreshCw className="spin" size={11} /> : zone._localKey ? <Upload size={11} /> : <Server size={11} />}
-                            {zone._localKey ? t('localBadge') : t('storageServer')}
-                        </button>
-                    )}
+                    <div className="zone-action-btns" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0, marginLeft: 'auto' }}>
+                        {onToggleZoneStorage && (
+                            <button
+                                className="zone-action-btn"
+                                onClick={(e) => { e.stopPropagation(); onToggleZoneStorage(zone); }}
+                                disabled={zoneStorageLoading}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.25rem',
+                                    fontSize: '0.65rem', fontWeight: 600,
+                                    padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+                                    border: '1px solid',
+                                    borderColor: zone._localKey ? 'var(--primary)' : 'var(--border)',
+                                    background: zone._localKey ? 'var(--select-active-bg)' : 'transparent',
+                                    color: zone._localKey ? 'var(--primary)' : 'var(--text-muted)',
+                                    transition: 'all 0.2s',
+                                }}
+                                title={zone._localKey ? t('uploadToServer') : t('switchToLocal')}
+                            >
+                                {zoneStorageLoading ? <RefreshCw className="spin" size={11} /> : zone._localKey ? <Upload size={11} /> : <Server size={11} />}
+                                <span className="zone-btn-label">{zone._localKey ? t('localBadge') : t('storageServer')}</span>
+                            </button>
+                        )}
 
-                    {auth.mode === 'server' && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setShowScheduledModal(true); }}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '4px',
-                                fontSize: '0.65rem', fontWeight: 600,
-                                padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
-                                border: '1px solid',
-                                borderColor: scheduledCount > 0 ? 'var(--primary)' : 'var(--border)',
-                                background: scheduledCount > 0 ? 'var(--select-active-bg)' : 'transparent',
-                                color: scheduledCount > 0 ? 'var(--primary)' : 'var(--text-muted)',
-                                transition: 'all 0.2s',
-                            }}
-                            title={t('scheduledChanges')}
-                        >
-                            <Clock size={12} />
-                            {t('scheduledChanges')}
-                            {scheduledCount > 0 && (
-                                <span style={{
-                                    background: 'var(--primary)', color: '#fff',
-                                    borderRadius: '50%', width: '16px', height: '16px',
-                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '0.6rem', fontWeight: 700
-                                }}>
-                                    {scheduledCount}
-                                </span>
-                            )}
-                        </button>
-                    )}
+                        {auth.mode === 'server' && (
+                            <button
+                                className="zone-action-btn"
+                                onClick={(e) => { e.stopPropagation(); setShowScheduledModal(true); }}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '4px',
+                                    fontSize: '0.65rem', fontWeight: 600,
+                                    padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+                                    border: '1px solid',
+                                    borderColor: scheduledCount > 0 ? 'var(--primary)' : 'var(--border)',
+                                    background: scheduledCount > 0 ? 'var(--select-active-bg)' : 'transparent',
+                                    color: scheduledCount > 0 ? 'var(--primary)' : 'var(--text-muted)',
+                                    transition: 'all 0.2s',
+                                }}
+                                title={t('scheduledChanges')}
+                            >
+                                <Clock size={12} />
+                                <span className="zone-btn-label">{t('scheduledChanges')}</span>
+                                {scheduledCount > 0 && (
+                                    <span style={{
+                                        background: 'var(--primary)', color: '#fff',
+                                        borderRadius: '50%', width: '16px', height: '16px',
+                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '0.6rem', fontWeight: 700
+                                    }}>
+                                        {scheduledCount}
+                                    </span>
+                                )}
+                            </button>
+                        )}
 
-                    {onAddAccount && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onAddAccount(); }}
-                            title={t('addNewToken')}
-                            className="btn btn-outline"
-                            style={{ padding: '4px 8px', height: 'auto', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', borderRadius: '6px' }}
-                        >
-                            <Plus size={14} />
-                        </button>
-                    )}
-
-                    <div style={{ position: 'relative' }} ref={zoneActionsRef}>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setShowZoneActions(!showZoneActions); }}
-                            title={t('zoneActions')}
-                            style={{
-                                display: 'flex', alignItems: 'center',
-                                padding: '3px 6px', borderRadius: '6px', cursor: 'pointer',
-                                border: '1px solid var(--border)',
-                                background: 'transparent',
-                                color: 'var(--text-muted)',
-                                transition: 'all 0.2s',
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                            <MoreVertical size={14} />
-                        </button>
+                        <div style={{ position: 'relative' }} ref={zoneActionsRef}>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowZoneActions(!showZoneActions); }}
+                                title={t('zoneActions')}
+                                style={{
+                                    display: 'flex', alignItems: 'center',
+                                    padding: '3px 6px', borderRadius: '6px', cursor: 'pointer',
+                                    border: '1px solid var(--border)',
+                                    background: 'transparent',
+                                    color: 'var(--text-muted)',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <MoreVertical size={14} />
+                            </button>
                         {showZoneActions && (
                             <div className="glass-card fade-in" style={{
                                 position: 'absolute', top: '120%', right: 0, zIndex: 100,
@@ -518,187 +507,66 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                             </div>
                         )}
                     </div>
-
-                    {showZoneSelector && (
-                        <div className="glass-card fade-in" style={{
-                            position: 'absolute',
-                            top: '120%',
-                            left: 0,
-                            zIndex: 100,
-                            maxHeight: '400px',
-                            overflowY: 'auto',
-                            minWidth: '280px',
-                            padding: '0.5rem',
-                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-                        }}>
-                            <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>{t('yourDomains')}</span>
-                                <button className="btn btn-outline" style={{ padding: '2px 6px', height: 'auto', fontSize: '0.7rem' }} onClick={(e) => { e.stopPropagation(); onRefreshZones(); }}>
-                                    <RefreshCw size={10} className={zonesLoading ? 'spin' : ''} />
-                                    {t('refresh')}
-                                </button>
-                            </div>
-                            {zones.map(z => {
-                                const isActive = z.id === zone.id && z._owner === zone._owner;
-                                return (
-                                    <div
-                                        key={`${z._owner}_${z.id}`}
-                                        role="option"
-                                        tabIndex={0}
-                                        aria-selected={isActive}
-                                        onClick={() => {
-                                            onSwitchZone(z);
-                                            setShowZoneSelector(false);
-                                        }}
-                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSwitchZone(z); setShowZoneSelector(false); } }}
-                                        style={{
-                                            padding: '0.5rem 0.75rem',
-                                            cursor: 'pointer',
-                                            borderRadius: '6px',
-                                            background: isActive ? 'var(--select-active-bg)' : 'transparent',
-                                            color: isActive ? 'var(--primary)' : 'var(--text)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: '8px',
-                                            marginBottom: '2px',
-                                            transition: 'all 0.1s'
-                                        }}
-                                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--hover-bg)'; }}
-                                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            <span style={{ fontWeight: isActive ? 600 : 400, fontSize: '0.875rem' }}>{z.name}</span>
-                                            <span className={`badge ${z.status === 'active' ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: '0.6rem', padding: '1px 4px' }}>
-                                                {t('status' + z.status.charAt(0).toUpperCase() + z.status.slice(1))}
-                                            </span>
-                                            {z._accountType === 'global_key'
-                                                ? <span className="badge" style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed' }}>{t('globalKeyBadge')}</span>
-                                                : <span className="badge" style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb' }}>{t('apiTokenBadge')}</span>
-                                            }
-                                            {z._localKey && <span className="badge badge-orange" style={{ fontSize: '0.55rem', padding: '1px 4px' }}>{t('localBadge')}</span>}
-                                        </div>
-                                        {isActive && <CheckCircle size={14} />}
-                                    </div>
-                                );
-                            })}
-                            <div style={{ height: '1px', background: 'var(--border)', margin: '0.5rem 0' }}></div>
-                            {onAddAccount && (
-                                <button
-                                    className="unstyled"
-                                    onClick={() => { setShowZoneSelector(false); onAddAccount(); }}
-                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', width: '100%' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--select-active-bg)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    <Plus size={14} />
-                                    {t('addNewToken')}
-                                </button>
-                            )}
-                            {onAddSession && (
-                                <button
-                                    className="unstyled"
-                                    onClick={() => { setShowZoneSelector(false); onAddSession(); }}
-                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', width: '100%' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    <User size={14} />
-                                    {t('loginAnotherAccount')}
-                                </button>
-                            )}
-                        </div>
-                    )}
+                    </div>{/* end zone-action-btns */}
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '2rem', borderBottom: '1px solid var(--border)', marginBottom: '1.5rem', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-                <button
-                    className="btn"
-                    style={{
-                        background: 'transparent',
-                        color: tab === 'dns' ? 'var(--primary)' : 'var(--text-muted)',
-                        borderBottom: tab === 'dns' ? '2px solid var(--primary)' : 'none',
-                        borderRadius: 0,
-                        padding: '0.75rem 0',
-                        fontWeight: tab === 'dns' ? '700' : '500'
-                    }}
-                    onClick={() => setTab('dns')}
-                >
-                    {t('dnsRecords')}
-                </button>
-                <button
-                    className="btn"
-                    style={{
-                        background: 'transparent',
-                        color: tab === 'saas' ? 'var(--primary)' : 'var(--text-muted)',
-                        borderBottom: tab === 'saas' ? '2px solid var(--primary)' : 'none',
-                        borderRadius: 0,
-                        padding: '0.75rem 0',
-                        fontWeight: tab === 'saas' ? '700' : '500'
-                    }}
-                    onClick={() => setTab('saas')}
-                >
-                    {t('saasHostnames')}
-                </button>
-                <button
-                    className="btn"
-                    style={{
-                        background: 'transparent',
-                        color: tab === 'cache' ? 'var(--primary)' : 'var(--text-muted)',
-                        borderBottom: tab === 'cache' ? '2px solid var(--primary)' : 'none',
-                        borderRadius: 0,
-                        padding: '0.75rem 0',
-                        fontWeight: tab === 'cache' ? '700' : '500',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                    }}
-                    onClick={() => setTab('cache')}
-                >
-                    <Database size={14} />
-                    {t('cacheTab')}
-                </button>
-                <button
-                    className="btn"
-                    style={{
-                        background: 'transparent',
-                        color: tab === 'speed' ? 'var(--primary)' : 'var(--text-muted)',
-                        borderBottom: tab === 'speed' ? '2px solid var(--primary)' : 'none',
-                        borderRadius: 0,
-                        padding: '0.75rem 0',
-                        fontWeight: tab === 'speed' ? '700' : '500',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                    }}
-                    onClick={() => setTab('speed')}
-                >
-                    <Zap size={14} />
-                    {t('speedTab')}
-                </button>
-                <button
-                    className="btn"
-                    style={{
-                        background: 'transparent',
-                        color: tab === 'ssl' ? 'var(--primary)' : 'var(--text-muted)',
-                        borderBottom: tab === 'ssl' ? '2px solid var(--primary)' : 'none',
-                        borderRadius: 0,
-                        padding: '0.75rem 0',
-                        fontWeight: tab === 'ssl' ? '700' : '500',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                    }}
-                    onClick={() => setTab('ssl')}
-                >
-                    <Shield size={14} />
-                    {t('sslTab')}
-                </button>
-            </div>
+            {/* Loading skeleton */}
+            {loading && !error && records.length === 0 && hostnames.length === 0 && (
+                <div className="glass-card" style={{ padding: '1.25rem', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                        <div className="skeleton" style={{ width: '120px', height: '24px' }} />
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div className="skeleton" style={{ width: '80px', height: '32px' }} />
+                            <div className="skeleton" style={{ width: '80px', height: '32px' }} />
+                        </div>
+                    </div>
+                    <div className="skeleton" style={{ width: '100%', height: '36px', marginBottom: '1rem' }} />
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="skeleton-row">
+                            <div className="skeleton" style={{ width: '50px', height: '22px' }} />
+                            <div className="skeleton" style={{ flex: 1, height: '16px' }} />
+                            <div className="skeleton" style={{ width: '150px', height: '16px' }} />
+                            <div className="skeleton" style={{ width: '60px', height: '22px' }} />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Error state */}
+            {error && !loading && (
+                <div className="glass-card error-state">
+                    <div className="error-state-icon" style={{
+                        background: error.type === 'permission' ? 'rgba(245, 158, 11, 0.1)' :
+                            error.type === 'auth' ? 'var(--error-bg)' :
+                            error.type === 'network' ? 'rgba(59, 130, 246, 0.1)' : 'var(--error-bg)'
+                    }}>
+                        {error.type === 'permission' ? <Shield size={28} color="#d97706" /> :
+                         error.type === 'auth' ? <Key size={28} color="var(--error)" /> :
+                         error.type === 'network' ? <WifiOff size={28} color="#2563eb" /> :
+                         <AlertCircle size={28} color="var(--error)" />}
+                    </div>
+                    <h3>{error.type === 'permission' ? t('errPermission') :
+                         error.type === 'auth' ? t('errAuth') :
+                         error.type === 'network' ? t('errNetwork') : t('errUnknown')}</h3>
+                    <p>{error.type === 'permission' ? t('errPermissionDesc') :
+                        error.type === 'auth' ? t('errAuthDesc') :
+                        error.type === 'network' ? t('errNetworkDesc') : error.message}</p>
+                    <div className="error-state-actions">
+                        <button className="btn btn-primary" onClick={() => tab === 'dns' ? fetchDNS() : fetchHostnames()}>
+                            <RefreshCw size={14} /> {t('retry')}
+                        </button>
+                        {(error.type === 'permission' || error.type === 'auth') && (
+                            <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ textDecoration: 'none' }}>
+                                {t('goToCfDashboard')}
+                            </a>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {tab === 'speed' ? (
-                <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><RefreshCw size={20} className="spin" /></div>}>
+                <React.Suspense fallback={<div className="content-loader"><div className="content-loader-spinner" /><span>{t('loadingRecords')}</span></div>}>
                     <SpeedOptimization
                         zone={zone}
                         getHeaders={getHeaders}
@@ -707,7 +575,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                     />
                 </React.Suspense>
             ) : tab === 'ssl' ? (
-                <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><RefreshCw size={20} className="spin" /></div>}>
+                <React.Suspense fallback={<div className="content-loader"><div className="content-loader-spinner" /><span>{t('loadingRecords')}</span></div>}>
                     <SslManagement
                         zone={zone}
                         getHeaders={getHeaders}
@@ -716,7 +584,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                     />
                 </React.Suspense>
             ) : tab === 'cache' ? (
-                <React.Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><RefreshCw size={20} className="spin" /></div>}>
+                <React.Suspense fallback={<div className="content-loader"><div className="content-loader-spinner" /><span>{t('loadingRecords')}</span></div>}>
                     <CacheManagement
                         zone={zone}
                         getHeaders={getHeaders}
@@ -725,7 +593,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                         openConfirm={openConfirm}
                     />
                 </React.Suspense>
-            ) : (
+            ) : !error && !(loading && records.length === 0 && hostnames.length === 0) ? (
             <div className="glass-card" style={{ padding: '1.25rem', overflow: 'hidden' }}>
                 <div className="flex-stack header-stack" style={{ marginBottom: '1.0rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <div className="header-top-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
@@ -854,7 +722,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                 </div>
                 )}
             </div>
-            )}
+            ) : null}
 
             {/* DNS Record Modal */}
             <DnsRecordModal

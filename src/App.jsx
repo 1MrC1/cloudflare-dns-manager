@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { Server, User, Shield, Key, LogOut, Plus, Trash2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe, Layers, Keyboard, WifiOff, Activity } from 'lucide-react';
+import { Server, User, Shield, Key, LogOut, Plus, Trash2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe, Layers, Keyboard, WifiOff, Activity, Menu, BarChart3, Database } from 'lucide-react';
 import useTranslate from './hooks/useTranslate.ts';
 import { getAuthHeaders } from './utils/auth.ts';
 import SecurityBadges from './components/SecurityBadges.jsx';
@@ -50,6 +50,11 @@ const App = () => {
     const refreshAbortController = useRef(null);
     const zoneFetchCache = useRef(new Map());
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview');
+    const [zoneDropdownOpen, setZoneDropdownOpen] = useState(false);
+    const [zoneSearchFilter, setZoneSearchFilter] = useState('');
+    const zoneDropdownRef = useRef(null);
 
     // Modal visibility toggles
     const [showAddAccount, setShowAddAccount] = useState(false);
@@ -69,6 +74,29 @@ const App = () => {
         document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
         localStorage.setItem('darkMode', String(darkMode));
     }, [darkMode]);
+
+    // Lock body scroll when mobile sidebar open
+    useEffect(() => {
+        if (sidebarOpen && window.innerWidth <= 768) {
+            document.body.classList.add('modal-open');
+        } else {
+            document.body.classList.remove('modal-open');
+        }
+        return () => document.body.classList.remove('modal-open');
+    }, [sidebarOpen]);
+
+    // Click-outside handler for zone dropdown
+    useEffect(() => {
+        if (!zoneDropdownOpen) return;
+        function handleClickOutside(e) {
+            if (zoneDropdownRef.current && !zoneDropdownRef.current.contains(e.target)) {
+                setZoneDropdownOpen(false);
+                setZoneSearchFilter('');
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [zoneDropdownOpen]);
 
     const MAX_TOASTS = 3;
     const dismissToast = (id) => {
@@ -187,6 +215,8 @@ const App = () => {
             const isInputFocused = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable;
 
             if (e.key === 'Escape') {
+                if (zoneDropdownOpen) { setZoneDropdownOpen(false); setZoneSearchFilter(''); return; }
+                if (sidebarOpen) { setSidebarOpen(false); return; }
                 if (showShortcutsHelp) { setShowShortcutsHelp(false); return; }
                 if (showMonitorsModal) { setShowMonitorsModal(false); return; }
                 if (showAddAccount) { setShowAddAccount(false); return; }
@@ -943,66 +973,18 @@ const App = () => {
                 </div>
             )}
             <header>
+                <button className="sidebar-hamburger" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={t('toggleSidebar')}>
+                    <Menu size={20} />
+                </button>
                 <button className="unstyled logo" onClick={() => window.location.reload()} aria-label="DNS Manager - Reload">
                     <Zap size={22} color="var(--primary)" />
                     DNS <span>Manager</span>
                 </button>
 
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <button
-                        onClick={toggleLang}
-                        style={{ border: 'none', background: 'transparent', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s', fontSize: '0.75rem', fontWeight: 600 }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--hover-btn-bg)';
-                            e.currentTarget.style.color = 'var(--primary)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                            e.currentTarget.style.color = 'var(--text-muted)';
-                        }}
-                        title={{ zh: 'English', en: '日本語', ja: '한국어', ko: '中文' }[lang]}
-                        aria-label={{ zh: 'Switch to English', en: '日本語に切り替え', ja: '한국어로 전환', ko: '切换到中文' }[lang]}
-                    >
-                        <Languages size={18} />
-                        <span>{lang.toUpperCase()}</span>
-                    </button>
-
-                    <button
-                        onClick={() => setDarkMode(!darkMode)}
-                        style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--hover-btn-bg)';
-                            e.currentTarget.style.color = 'var(--primary)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                            e.currentTarget.style.color = 'var(--text-muted)';
-                        }}
-                        title={darkMode ? t('lightMode') : t('darkMode')}
-                        aria-label={darkMode ? t('lightMode') : t('darkMode')}
-                    >
-                        {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-                    </button>
-
-                    <button
-                        onClick={() => setShowShortcutsHelp(true)}
-                        style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--hover-btn-bg)';
-                            e.currentTarget.style.color = 'var(--primary)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                            e.currentTarget.style.color = 'var(--text-muted)';
-                        }}
-                        title={t('keyboardShortcuts')}
-                        aria-label={t('keyboardShortcuts')}
-                    >
-                        <Keyboard size={18} />
-                    </button>
-
+                <div className="header-right" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {/* Search — desktop only */}
                     {auth.mode === 'server' && (
-                        <div ref={searchRef} style={{ position: 'relative' }}>
+                        <div ref={searchRef} className="header-search-box" style={{ position: 'relative' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--hover-bg)', borderRadius: '8px', padding: '2px 8px', border: '1px solid var(--border)' }}>
                                 <Search size={14} color="var(--text-muted)" />
                                 <input
@@ -1110,6 +1092,7 @@ const App = () => {
                         </div>
                     )}
 
+                    {/* Monitors — keep visible (has alert badge) */}
                     {auth.mode === 'server' && (
                         <button
                             onClick={() => setShowMonitorsModal(true)}
@@ -1135,104 +1118,57 @@ const App = () => {
                         </button>
                     )}
 
-                    {auth.mode === 'server' && !isLocalMode && (
-                        <button
-                            onClick={() => setShowBulkModal(true)}
-                            style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover-btn-bg)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                            title={t('bulkOperations')}
-                            aria-label={t('bulkOperations')}
-                        >
-                            <Layers size={18} />
-                        </button>
-                    )}
+                    {/* Dark mode toggle */}
+                    <button
+                        onClick={() => setDarkMode(!darkMode)}
+                        style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'var(--hover-btn-bg)';
+                            e.currentTarget.style.color = 'var(--primary)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.color = 'var(--text-muted)';
+                        }}
+                        title={darkMode ? t('lightMode') : t('darkMode')}
+                        aria-label={darkMode ? t('lightMode') : t('darkMode')}
+                    >
+                        {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
 
-                    {auth.role === 'admin' && (
-                        <>
-                        <div style={{ height: '16px', width: '1px', background: 'var(--border)' }}></div>
-                        <button
-                            onClick={() => setShowUserManagement(true)}
-                            style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover-btn-bg)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                            title={t('usersManagement')}
-                            aria-label={t('usersManagement')}
-                        >
-                            <Settings size={18} />
-                        </button>
-                        </>
-                    )}
-
-                    <div style={{ height: '16px', width: '1px', background: 'var(--border)' }}></div>
-
-                    {auth.mode === 'server' ? (
-                        <button
-                            onClick={handleToggleStorage}
-                            disabled={storageToggleLoading}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                fontSize: '0.75rem', fontWeight: '600',
-                                padding: '4px 10px', borderRadius: '6px',
-                                border: '1px solid',
-                                borderColor: isLocalMode ? 'var(--primary)' : 'var(--border)',
-                                background: isLocalMode ? 'var(--select-active-bg)' : 'transparent',
-                                color: isLocalMode ? 'var(--primary)' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                            }}
-                            title={isLocalMode ? t('switchedToLocal') : t('switchedToServer')}
-                        >
-                            {storageToggleLoading ? <RefreshCw className="spin" size={13} /> : <Server size={13} />}
-                            {isLocalMode ? t('storageLocal') : t('storageServer')}
-                        </button>
-                    ) : (
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: '0.4rem',
-                            fontSize: '0.75rem', fontWeight: '600',
-                            padding: '4px 10px', borderRadius: '6px',
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--text-muted)',
-                        }}>
-                            <Server size={13} />
-                            {t('clientMode')}
-                        </div>
-                    )}
-
-                    <div style={{ height: '16px', width: '1px', background: 'var(--border)' }}></div>
-
+                    {/* Account menu — contains all other actions */}
                     <div style={{ position: 'relative' }} ref={accountSelectorRef}>
                         <button
                             onClick={() => setShowAccountSelector(!showAccountSelector)}
-                            style={{ border: 'none', background: 'transparent', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', borderRadius: '8px', transition: 'background 0.2s', fontSize: '0.8rem' }}
+                            style={{ border: 'none', background: showAccountSelector ? 'var(--hover-btn-bg)' : 'transparent', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', borderRadius: '8px', transition: 'background 0.2s', fontSize: '0.8rem' }}
                             onMouseEnter={(e) => e.currentTarget.style.background = 'var(--hover-btn-bg)'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            onMouseLeave={(e) => { if (!showAccountSelector) e.currentTarget.style.background = 'transparent'; }}
                             title={t('switchAccount')}
                             aria-label={t('switchAccount')}
                             aria-expanded={showAccountSelector}
                             aria-haspopup="true"
                         >
                             <User size={16} />
-                            <span style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{auth.username || 'admin'}</span>
-                            <ChevronDown size={14} />
+                            <span className="hide-mobile" style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{auth.username || 'admin'}</span>
+                            <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: showAccountSelector ? 'rotate(180deg)' : 'none' }} />
                         </button>
                         {showAccountSelector && (
                             <div className="glass-card fade-in" role="menu" aria-label={t('switchAccount')} style={{
                                 position: 'absolute',
                                 top: '120%',
                                 right: 0,
-                                width: '220px',
+                                width: '240px',
                                 padding: '0.25rem',
                                 zIndex: 100,
-                                maxHeight: '350px',
+                                maxHeight: '80vh',
                                 overflowY: 'auto'
                             }}>
+                                {/* Sessions */}
                                 {auth.mode === 'server' && (auth.sessions || []).map((session, si) => (
                                     <div key={session.username} style={{
                                         padding: '0.5rem 0.75rem',
                                         borderRadius: '6px',
-                                        fontSize: '0.875rem',
+                                        fontSize: '0.8125rem',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '8px',
@@ -1266,7 +1202,7 @@ const App = () => {
                                             className="unstyled"
                                             role="menuitem"
                                             onClick={() => { setShowAccountSelector(false); setShowAddSession(true); }}
-                                            style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', width: '100%' }}
+                                            style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', width: '100%' }}
                                             onMouseEnter={e => e.currentTarget.style.background = 'var(--select-active-bg)'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                         >
@@ -1278,12 +1214,87 @@ const App = () => {
 
                                 <div style={{ height: '1px', background: 'var(--border)', margin: '0.25rem 0' }}></div>
 
+                                {/* Tools & Settings — moved from header */}
+                                <button
+                                    className="unstyled"
+                                    role="menuitem"
+                                    onClick={() => { setShowAccountSelector(false); toggleLang(); }}
+                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <Languages size={14} />
+                                    {{ zh: 'English', en: '日本語', ja: '한국어', ko: '中文' }[lang]}
+                                    <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{lang.toUpperCase()}</span>
+                                </button>
+
+                                <button
+                                    className="unstyled"
+                                    role="menuitem"
+                                    onClick={() => { setShowAccountSelector(false); setShowShortcutsHelp(true); }}
+                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <Keyboard size={14} />
+                                    {t('keyboardShortcuts')}
+                                </button>
+
+                                {auth.mode === 'server' && (
+                                    <button
+                                        className="unstyled"
+                                        role="menuitem"
+                                        onClick={() => { setShowAccountSelector(false); handleToggleStorage(); }}
+                                        disabled={storageToggleLoading}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: isLocalMode ? 'var(--primary)' : 'var(--text)', width: '100%' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        {storageToggleLoading ? <RefreshCw className="spin" size={14} /> : <Server size={14} />}
+                                        {isLocalMode ? t('storageLocal') : t('storageServer')}
+                                        <span style={{ marginLeft: 'auto', fontSize: '0.6rem', padding: '1px 6px', borderRadius: '9999px', background: isLocalMode ? 'var(--select-active-bg)' : 'var(--hover-bg)', color: isLocalMode ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 600 }}>
+                                            {isLocalMode ? 'LOCAL' : 'SERVER'}
+                                        </span>
+                                    </button>
+                                )}
+
+                                {auth.mode === 'server' && !isLocalMode && (
+                                    <button
+                                        className="unstyled"
+                                        role="menuitem"
+                                        onClick={() => { setShowAccountSelector(false); setShowBulkModal(true); }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <Layers size={14} />
+                                        {t('bulkOperations')}
+                                    </button>
+                                )}
+
+                                {auth.role === 'admin' && (
+                                    <button
+                                        className="unstyled"
+                                        role="menuitem"
+                                        onClick={() => { setShowAccountSelector(false); setShowUserManagement(true); }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <Settings size={14} />
+                                        {t('usersManagement')}
+                                    </button>
+                                )}
+
+                                <div style={{ height: '1px', background: 'var(--border)', margin: '0.25rem 0' }}></div>
+
+                                {/* Security */}
                                 {auth.mode === 'server' && auth.username !== 'admin' && (
                                     <button
                                         className="unstyled"
                                         role="menuitem"
                                         onClick={() => { setShowAccountSelector(false); setShowChangePassword(true); }}
-                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                     >
@@ -1297,7 +1308,7 @@ const App = () => {
                                         className="unstyled"
                                         role="menuitem"
                                         onClick={() => { setShowAccountSelector(false); setShowPasskeyModal(true); }}
-                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                     >
@@ -1311,7 +1322,7 @@ const App = () => {
                                         className="unstyled"
                                         role="menuitem"
                                         onClick={() => { setShowAccountSelector(false); setShowTotpModal(true); }}
-                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                     >
@@ -1320,11 +1331,13 @@ const App = () => {
                                     </button>
                                 )}
 
+                                <div style={{ height: '1px', background: 'var(--border)', margin: '0.25rem 0' }}></div>
+
                                 <button
                                     className="unstyled"
                                     role="menuitem"
                                     onClick={doLogout}
-                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', width: '100%' }}
+                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', width: '100%' }}
                                     onMouseEnter={e => e.currentTarget.style.background = 'var(--error-bg)'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
@@ -1350,236 +1363,250 @@ const App = () => {
                 <UserManagement show={showUserManagement} onClose={() => setShowUserManagement(false)} auth={auth} t={t} showToast={showToast} />
             </ErrorBoundary>
 
+            <div className="app-layout">
+                {/* Sidebar */}
+                <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}`}>
+                    <div className="sidebar-header">
+                        <span className="sidebar-header-title">{t('yourDomains')}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <button
+                                className="sidebar-close"
+                                style={{ display: 'flex', alignItems: 'center', padding: '4px', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '6px' }}
+                                onClick={() => fetchZones(auth)}
+                                title={t('refresh')}
+                            >
+                                <RefreshCw size={14} className={loading ? 'spin' : ''} />
+                            </button>
+                            <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label={t('toggleSidebar')}>
+                                <X size={16} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Custom zone dropdown */}
+                    <div className="sidebar-zone-selector" ref={zoneDropdownRef}>
+                        <button
+                            className={`zone-dropdown${zoneDropdownOpen ? ' open' : ''}`}
+                            onClick={() => { setZoneDropdownOpen(!zoneDropdownOpen); setZoneSearchFilter(''); }}
+                        >
+                            <span className="zone-dropdown-dot" style={{ background: selectedZone ? 'var(--success)' : 'var(--text-muted)' }} />
+                            <span className="zone-dropdown-name">{selectedZone ? selectedZone.name : t('selectZone')}</span>
+                            <ChevronDown size={14} className="zone-dropdown-chevron" />
+                        </button>
+                        {zoneDropdownOpen && (
+                            <div className="zone-dropdown-menu">
+                                {zones.length > 5 && (
+                                    <div className="zone-dropdown-search">
+                                        <div style={{ position: 'relative' }}>
+                                            <Search size={12} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                            <input
+                                                type="text"
+                                                placeholder={t('searchZones')}
+                                                value={zoneSearchFilter}
+                                                onChange={(e) => setZoneSearchFilter(e.target.value)}
+                                                autoFocus
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                {zones
+                                    .filter(z => !zoneSearchFilter || z.name.toLowerCase().includes(zoneSearchFilter.toLowerCase()))
+                                    .map(z => (
+                                    <button
+                                        key={`${z._owner}_${z.id}`}
+                                        className={`zone-dropdown-item${selectedZone?.id === z.id ? ' selected' : ''}`}
+                                        onClick={() => {
+                                            selectZone(z, auth);
+                                            setZoneDropdownOpen(false);
+                                            setZoneSearchFilter('');
+                                            if (activeTab === 'overview') setActiveTab('dns');
+                                        }}
+                                    >
+                                        <span className="zone-dropdown-dot" style={{ background: 'var(--success)' }} />
+                                        <span className="zone-dropdown-item-name">{z.name}</span>
+                                        <span className="zone-dropdown-item-badge" style={{
+                                            background: z._accountType === 'global_key' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                                            color: z._accountType === 'global_key' ? '#7c3aed' : '#2563eb'
+                                        }}>
+                                            {z._accountType === 'global_key' ? 'GK' : 'AT'}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Navigation */}
+                    <nav className="sidebar-nav">
+                        <button
+                            className={`sidebar-nav-item${activeTab === 'overview' ? ' active' : ''}`}
+                            onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
+                        >
+                            <BarChart3 size={16} /> {t('overview')}
+                        </button>
+
+                        {selectedZone && (
+                            <>
+                                <div className="sidebar-separator" />
+                                <button
+                                    className={`sidebar-nav-item${activeTab === 'dns' ? ' active' : ''}`}
+                                    onClick={() => { setActiveTab('dns'); setSidebarOpen(false); }}
+                                >
+                                    <Globe size={16} /> {t('dnsRecords')}
+                                </button>
+                                <button
+                                    className={`sidebar-nav-item${activeTab === 'saas' ? ' active' : ''}`}
+                                    onClick={() => { setActiveTab('saas'); setSidebarOpen(false); }}
+                                >
+                                    <Layers size={16} /> {t('saasHostnames')}
+                                </button>
+                                <button
+                                    className={`sidebar-nav-item${activeTab === 'cache' ? ' active' : ''}`}
+                                    onClick={() => { setActiveTab('cache'); setSidebarOpen(false); }}
+                                >
+                                    <Database size={16} /> {t('cacheTab')}
+                                </button>
+                                <button
+                                    className={`sidebar-nav-item${activeTab === 'speed' ? ' active' : ''}`}
+                                    onClick={() => { setActiveTab('speed'); setSidebarOpen(false); }}
+                                >
+                                    <Zap size={16} /> {t('speedTab')}
+                                </button>
+                                <button
+                                    className={`sidebar-nav-item${activeTab === 'ssl' ? ' active' : ''}`}
+                                    onClick={() => { setActiveTab('ssl'); setSidebarOpen(false); }}
+                                >
+                                    <Shield size={16} /> {t('sslTab')}
+                                </button>
+                            </>
+                        )}
+                    </nav>
+
+                    <div className="sidebar-footer">
+                        {auth.mode === 'server' && (
+                            <button className="sidebar-footer-btn" onClick={() => { setSidebarOpen(false); setShowAddAccount(true); }}>
+                                <Plus size={14} />
+                                {t('addNewToken')}
+                            </button>
+                        )}
+                        {auth.mode === 'server' && (
+                            <button className="sidebar-footer-btn muted" onClick={() => { setSidebarOpen(false); setShowAddSession(true); }}>
+                                <User size={14} />
+                                {t('loginAnotherAccount')}
+                            </button>
+                        )}
+                    </div>
+                </aside>
+                <div className={`sidebar-backdrop${sidebarOpen ? ' sidebar-backdrop--visible' : ''}`} onClick={() => setSidebarOpen(false)} />
+
+                <div className="app-content">
             <main style={{ paddingBottom: '3rem' }}>
-                {!loading && zones.length > 0 && (
-                    <div className="container" style={{ paddingBottom: 0 }}>
+                {loading && zones.length === 0 ? (
+                    <div className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', marginTop: '4rem' }}>
+                        <RefreshCw className="spin" size={32} style={{ color: 'var(--primary)' }} />
+                        <p style={{ color: 'var(--text-muted)' }}>{t('statusInitializing')}</p>
+                    </div>
+                ) : zones.length === 0 ? (
+                    /* === NO ZONES === */
+                    <div className="container" style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--text-muted)' }}>
+                        <div className="glass-card fade-in" style={{ maxWidth: '480px', margin: '0 auto', padding: '2rem', textAlign: 'center' }}>
+                            <div style={{ display: 'inline-flex', padding: '0.75rem', background: 'var(--error-bg)', borderRadius: '12px', marginBottom: '1rem' }}>
+                                <AlertCircle size={32} color="var(--error)" />
+                            </div>
+                            <h3 style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>{t('noZonesFound')}</h3>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                                {auth.mode === 'server' ? t('noZonesServerExplanation') : t('noZonesClientExplanation')}
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                                <button className="btn btn-outline" onClick={doLogout} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <LogOut size={14} /> {t('backToLogin')}
+                                </button>
+                                <button className="btn btn-outline" onClick={() => fetchZones(auth)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <RefreshCw size={14} /> {t('retryFetch')}
+                                </button>
+                            </div>
+                            <div style={{ height: '1px', background: 'var(--border)', margin: '1.5rem 0' }}></div>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t('noZonesEnterToken')}</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                                {t('noZonesGetToken')}{' '}
+                                <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>
+                                    dash.cloudflare.com/profile/api-tokens
+                                </a>
+                            </p>
+                            <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                                <Shield size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                <input
+                                    type="password"
+                                    placeholder={t('tokenPlaceholder')}
+                                    value={recoveryToken}
+                                    onChange={(e) => { setRecoveryToken(e.target.value); setRecoveryError(''); }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && auth.mode === 'server') handleSaveTokenToServer(); else if (e.key === 'Enter') handleRecoveryLogin(); }}
+                                    style={{ paddingLeft: '38px', width: '100%' }}
+                                />
+                            </div>
+                            {auth.mode === 'server' && (
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>{t('saveToServerHint')}</p>
+                            )}
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                {auth.mode === 'server' && (
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={handleSaveTokenToServer}
+                                        disabled={recoveryLoading || !recoveryToken.trim()}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        {recoveryLoading ? <RefreshCw className="spin" size={14} /> : <Save size={14} />}
+                                        {t('saveToServer')}
+                                    </button>
+                                )}
+                                <button
+                                    className={auth.mode === 'server' ? 'btn btn-outline' : 'btn btn-primary'}
+                                    onClick={handleRecoveryLogin}
+                                    disabled={recoveryLoading || !recoveryToken.trim()}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    <Key size={14} />
+                                    {t('useDirectly')}
+                                </button>
+                            </div>
+                            {recoveryError && <p style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '0.75rem' }}>{recoveryError}</p>}
+                        </div>
+                    </div>
+                ) : activeTab === 'overview' ? (
+                    /* === OVERVIEW / DASHBOARD === */
+                    <div className="container page-enter" key="overview" style={{ paddingBottom: 0 }}>
                         <ErrorBoundary t={t}>
                             <Dashboard zones={zones} />
                         </ErrorBoundary>
                     </div>
-                )}
-                {isLocalMode && auth.mode === 'server' ? (
-                    /* === LOCAL MODE UI === */
-                    selectedZone ? (
-                        <ErrorBoundary t={t}>
-                            <ZoneDetail
-                                ref={zoneDetailRef}
-                                zone={selectedZone}
-                                zones={zones}
-                                onSwitchZone={(z) => selectZone(z, auth)}
-                                onRefreshZones={() => fetchZones(auth)}
-                                zonesLoading={loading}
-                                auth={auth}
-                                onBack={() => { }}
-                                t={t}
-                                showToast={showToast}
-                                onAddAccount={null}
-                                onAddSession={() => setShowAddSession(true)}
-                                onToggleZoneStorage={handleToggleZoneStorage}
-                                zoneStorageLoading={zoneStorageLoading}
-                                onUnbindZone={handleUnbindZone}
-                            />
-                        </ErrorBoundary>
-                    ) : (
-                        <div className="container" style={{ marginTop: '2rem', maxWidth: '520px', marginLeft: 'auto', marginRight: 'auto' }}>
-                            {loading ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', marginTop: '2rem' }}>
-                                    <RefreshCw className="spin" size={32} style={{ color: 'var(--primary)' }} />
-                                    <p style={{ color: 'var(--text-muted)' }}>{t('statusInitializing')}</p>
-                                </div>
-                            ) : (
-                                <div className="fade-in">
-                                    {/* Local mode header */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                                        <h3 style={{ fontSize: '1rem', margin: 0 }}>{t('localModeTitle')}</h3>
-                                        <span className="badge badge-orange" style={{ fontSize: '0.65rem', padding: '2px 8px' }}>{t('localBadge')}</span>
-                                    </div>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-                                        {t('localModeDesc')}
-                                    </p>
-
-                                    {/* Local domains list */}
-                                    {zones.length > 0 && (
-                                        <div className="glass-card" style={{ padding: '1rem', marginBottom: '1rem' }}>
-                                            <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>{t('localTokens')}</h4>
-                                            {zones.map((z) => (
-                                                <div
-                                                    key={z.id}
-                                                    role="button"
-                                                    tabIndex={0}
-                                                    onClick={() => selectZone(z, auth)}
-                                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectZone(z, auth); } }}
-                                                    style={{
-                                                        display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                                        padding: '0.5rem 0.6rem', borderRadius: '6px',
-                                                        marginBottom: '4px', background: 'var(--hover-bg)',
-                                                        cursor: 'pointer', transition: 'background 0.15s'
-                                                    }}
-                                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--select-active-bg)'}
-                                                    onMouseLeave={e => e.currentTarget.style.background = 'var(--hover-bg)'}
-                                                >
-                                                    <Globe size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', flex: 1 }}>{z.name}</span>
-                                                    <span className="badge badge-green" style={{ fontSize: '0.6rem', padding: '1px 5px', flexShrink: 0 }}>{z.status}</span>
-                                                    <span className="badge badge-orange" style={{ fontSize: '0.6rem', padding: '1px 5px', flexShrink: 0 }}>{t('localBadge')}</span>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleToggleZoneStorage(z); }}
-                                                        disabled={zoneStorageLoading}
-                                                        style={{
-                                                            border: 'none', background: 'transparent', cursor: 'pointer',
-                                                            padding: '2px', display: 'flex', color: 'var(--text-muted)', flexShrink: 0
-                                                        }}
-                                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
-                                                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                                                        title={t('uploadToServer')}
-                                                    >
-                                                        <Upload size={13} />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleRemoveLocalToken(z._localKey); }}
-                                                        style={{
-                                                            border: 'none', background: 'transparent', cursor: 'pointer',
-                                                            padding: '2px', display: 'flex', color: 'var(--text-muted)', flexShrink: 0
-                                                        }}
-                                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-                                                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                                                        title={t('removeLocalToken')}
-                                                    >
-                                                        <Trash2 size={13} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Add local token card */}
-                                    <div className="glass-card" style={{ padding: '1.25rem' }}>
-                                        <h4 style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>{t('addLocalToken')}</h4>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                                            {getLocalTokensList().length === 0 ? t('noLocalTokens') : t('noZonesEnterToken')}{' '}
-                                            <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>
-                                                dash.cloudflare.com/profile/api-tokens
-                                            </a>
-                                        </p>
-                                        <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
-                                            <Shield size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                            <input
-                                                type="password"
-                                                placeholder={t('tokenPlaceholder')}
-                                                value={recoveryToken}
-                                                onChange={(e) => { setRecoveryToken(e.target.value); setRecoveryError(''); }}
-                                                onKeyDown={(e) => { if (e.key === 'Enter') handleAddLocalToken(); }}
-                                                style={{ paddingLeft: '38px', width: '100%' }}
-                                            />
-                                        </div>
-                                        {recoveryError && <p style={{ color: 'var(--error)', fontSize: '0.75rem', marginBottom: '0.75rem' }}>{recoveryError}</p>}
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={handleAddLocalToken}
-                                            disabled={recoveryLoading || !recoveryToken.trim()}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', justifyContent: 'center' }}
-                                        >
-                                            {recoveryLoading ? <RefreshCw className="spin" size={14} /> : <Plus size={14} />}
-                                            {t('addLocalToken')}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )
                 ) : selectedZone ? (
-                    /* === SERVER/CLIENT MODE WITH ZONE SELECTED === */
+                    /* === ZONE DETAIL (DNS/SaaS/Cache/Speed/SSL) === */
+                    <div className="page-enter" key={`${selectedZone.id}-${activeTab}`}>
                     <ErrorBoundary t={t}>
                         <ZoneDetail
                             ref={zoneDetailRef}
                             zone={selectedZone}
-                            zones={zones}
-                            onSwitchZone={(z) => selectZone(z, auth)}
-                            onRefreshZones={() => fetchZones(auth)}
-                            zonesLoading={loading}
                             auth={auth}
+                            tab={activeTab}
                             onBack={() => { }}
                             t={t}
                             showToast={showToast}
-                            onAddAccount={auth.mode === 'server' ? () => setShowAddAccount(true) : null}
-                            onAddSession={() => setShowAddSession(true)}
                             onToggleZoneStorage={auth.mode === 'server' ? handleToggleZoneStorage : null}
                             zoneStorageLoading={zoneStorageLoading}
                             onUnbindZone={handleUnbindZone}
+                            onRefreshZones={() => fetchZones(auth)}
                         />
                     </ErrorBoundary>
+                    </div>
                 ) : (
-                    /* === SERVER/CLIENT MODE NO ZONES === */
-                    <div className="container" style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--text-muted)' }}>
-                        {loading ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                                <RefreshCw className="spin" size={32} style={{ color: 'var(--primary)' }} />
-                                <p>{t('statusInitializing')}</p>
-                            </div>
-                        ) : (
-                            <div className="glass-card fade-in" style={{ maxWidth: '480px', margin: '0 auto', padding: '2rem', textAlign: 'center' }}>
-                                <div style={{ display: 'inline-flex', padding: '0.75rem', background: 'var(--error-bg)', borderRadius: '12px', marginBottom: '1rem' }}>
-                                    <AlertCircle size={32} color="var(--error)" />
-                                </div>
-                                <h3 style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>{t('noZonesFound')}</h3>
-                                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-                                    {auth.mode === 'server' ? t('noZonesServerExplanation') : t('noZonesClientExplanation')}
-                                </p>
-                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
-                                    <button className="btn btn-outline" onClick={doLogout} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <LogOut size={14} /> {t('backToLogin')}
-                                    </button>
-                                    <button className="btn btn-outline" onClick={() => fetchZones(auth)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <RefreshCw size={14} /> {t('retryFetch')}
-                                    </button>
-                                </div>
-                                <div style={{ height: '1px', background: 'var(--border)', margin: '1.5rem 0' }}></div>
-                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t('noZonesEnterToken')}</p>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                                    {t('noZonesGetToken')}{' '}
-                                    <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>
-                                        dash.cloudflare.com/profile/api-tokens
-                                    </a>
-                                </p>
-                                <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
-                                    <Shield size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                    <input
-                                        type="password"
-                                        placeholder={t('tokenPlaceholder')}
-                                        value={recoveryToken}
-                                        onChange={(e) => { setRecoveryToken(e.target.value); setRecoveryError(''); }}
-                                        onKeyDown={(e) => { if (e.key === 'Enter' && auth.mode === 'server') handleSaveTokenToServer(); else if (e.key === 'Enter') handleRecoveryLogin(); }}
-                                        style={{ paddingLeft: '38px', width: '100%' }}
-                                    />
-                                </div>
-                                {auth.mode === 'server' && (
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>{t('saveToServerHint')}</p>
-                                )}
-                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                    {auth.mode === 'server' && (
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={handleSaveTokenToServer}
-                                            disabled={recoveryLoading || !recoveryToken.trim()}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                        >
-                                            {recoveryLoading ? <RefreshCw className="spin" size={14} /> : <Save size={14} />}
-                                            {t('saveToServer')}
-                                        </button>
-                                    )}
-                                    <button
-                                        className={auth.mode === 'server' ? 'btn btn-outline' : 'btn btn-primary'}
-                                        onClick={handleRecoveryLogin}
-                                        disabled={recoveryLoading || !recoveryToken.trim()}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                    >
-                                        <Key size={14} />
-                                        {t('useDirectly')}
-                                    </button>
-                                </div>
-                                {recoveryError && <p style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '0.75rem' }}>{recoveryError}</p>}
-                            </div>
-                        )}
+                    /* === NO ZONE SELECTED but zones exist — prompt to select === */
+                    <div className="container" style={{ textAlign: 'center', marginTop: '4rem' }}>
+                        <div className="glass-card fade-in" style={{ maxWidth: '400px', margin: '0 auto', padding: '2rem' }}>
+                            <Globe size={32} color="var(--primary)" style={{ marginBottom: '1rem' }} />
+                            <h3 style={{ marginBottom: '0.5rem' }}>{t('selectZone')}</h3>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('domainSubtitle')}</p>
+                        </div>
                     </div>
                 )}
             </main>
@@ -1594,6 +1621,8 @@ const App = () => {
                     Cloudflare DNS Manager &mdash; {{ zh: '您的数据安全是我们的首要任务', en: 'Your data security is our top priority', ja: 'お客様のデータセキュリティは最優先事項です', ko: '여러분의 데이터 보안은 최우선 과제입니다' }[lang]}
                 </p>
             </footer>
+                </div>{/* end app-content */}
+            </div>{/* end app-layout */}
 
             {/* Onboarding Tour */}
             <OnboardingTour t={t} />

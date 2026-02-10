@@ -431,3 +431,143 @@ body.modal-open {
         margin-bottom: 4px;
     }
 }
+
+/* ============================================
+   Sidebar — mobile overlay (supplements index.css)
+   ============================================ */
+@media (max-width: 768px) {
+    .sidebar-hamburger {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .sidebar-close {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 199;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s;
+    }
+
+    .sidebar-backdrop.sidebar-backdrop--visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+@media (max-width: 380px) {
+    .sidebar {
+        width: 85vw;
+        min-width: 85vw;
+    }
+}
+
+@media (pointer: coarse) {
+    .sidebar-nav-item {
+        min-height: 44px;
+    }
+
+    .zone-dropdown {
+        min-height: 44px;
+    }
+
+    .zone-dropdown-item {
+        min-height: 44px;
+    }
+
+    .sidebar-hamburger {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .sidebar-close {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .sidebar-footer-btn {
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 768px) {
+    .zone-dropdown-menu {
+        max-height: 250px;
+    }
+}
+
+/* ============================================
+   Zone header responsive — mobile
+   ============================================ */
+@media (max-width: 640px) {
+    .zone-header-row {
+        gap: 0.35rem !important;
+    }
+
+    .zone-name-title {
+        font-size: 1.1rem !important;
+        max-width: 45vw;
+    }
+
+    .zone-type-badge {
+        font-size: 0.5rem !important;
+        padding: 1px 4px !important;
+    }
+
+    /* Hide text labels on action buttons, keep icons */
+    .zone-btn-label {
+        display: none;
+    }
+
+    .zone-action-btn {
+        padding: 4px 6px !important;
+    }
+
+    .zone-action-btns {
+        gap: 0.25rem !important;
+    }
+
+    /* Globe icon smaller on mobile */
+    .zone-globe-icon {
+        padding: 0.15rem !important;
+    }
+    .zone-globe-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+@media (max-width: 380px) {
+    .zone-name-title {
+        font-size: 0.95rem !important;
+        max-width: 35vw;
+    }
+
+    .zone-type-badge {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   Auth tabs (Login & AddAccount) — mobile
+   ============================================ */
+@media (pointer: coarse) {
+    .auth-type-tabs button {
+        min-height: 44px;
+    }
+}
+
+/* Zone selector dropdown removed — replaced by sidebar */
