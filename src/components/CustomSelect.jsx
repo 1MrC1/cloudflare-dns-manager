@@ -27,8 +27,12 @@ const CustomSelect = ({ value, options, onChange, placeholder = "Select..." }) =
 
     return (
         <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
-            <div
+            <button
+                type="button"
+                className="unstyled"
                 onClick={() => setIsOpen(!isOpen)}
+                aria-haspopup="listbox"
+                aria-expanded={isOpen}
                 style={{
                     padding: '0.625rem 0.875rem',
                     background: 'var(--card-bg, white)',
@@ -40,6 +44,7 @@ const CustomSelect = ({ value, options, onChange, placeholder = "Select..." }) =
                     alignItems: 'center',
                     fontSize: '0.875rem',
                     minHeight: '42px',
+                    width: '100%',
                     borderColor: isOpen ? 'var(--primary)' : 'var(--border)',
                     boxShadow: isOpen ? '0 0 0 3px rgba(243, 128, 32, 0.1)' : 'none',
                     transition: 'all 0.2s'
@@ -49,9 +54,9 @@ const CustomSelect = ({ value, options, onChange, placeholder = "Select..." }) =
                     {currentLabel || placeholder}
                 </span>
                 <ChevronDown size={16} color="var(--text-muted)" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
-            </div>
+            </button>
             {isOpen && (
-                <div style={{
+                <div role="listbox" style={{
                     position: 'absolute',
                     top: '100%',
                     left: 0,
@@ -68,7 +73,11 @@ const CustomSelect = ({ value, options, onChange, placeholder = "Select..." }) =
                     {options.map(opt => (
                         <div
                             key={opt.value}
+                            role="option"
+                            tabIndex={0}
+                            aria-selected={String(opt.value) === String(value)}
                             onClick={() => handleSelect(opt.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(opt.value); } }}
                             style={{
                                 padding: '0.625rem 0.875rem',
                                 cursor: 'pointer',

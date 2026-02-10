@@ -294,6 +294,7 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                         onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         title={lang === 'zh' ? 'English' : '中文'}
+                        aria-label={lang === 'zh' ? 'Switch to English' : '切换到中文'}
                     >
                         <Languages size={20} />
                     </button>

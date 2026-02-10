@@ -305,7 +305,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
         openConfirm(t('confirmTitle'), t('confirmDelete'), async () => {
             const res = await fetch(`/api/zones/${zone.id}/dns_records?id=${id}`, {
                 method: 'DELETE',
-                headers: getHeaders()
+                headers: getHeaders(true)
             });
             if (res.ok) {
                 fetchDNS();
@@ -321,7 +321,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
         openConfirm(t('confirmTitle'), t('confirmDeleteSaaS'), async () => {
             const res = await fetch(`/api/zones/${zone.id}/custom_hostnames?id=${id}`, {
                 method: 'DELETE',
-                headers: getHeaders()
+                headers: getHeaders(true)
             });
             if (res.ok) {
                 fetchHostnames();
@@ -499,14 +499,18 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                         <Globe size={24} color="var(--primary)" />
                     </div>
 
-                    <div
+                    <button
+                        className="unstyled"
                         onClick={() => setShowZoneSelector(!showZoneSelector)}
                         style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', userSelect: 'none' }}
                         title={t('switchZone')}
+                        aria-label={t('switchZone')}
+                        aria-expanded={showZoneSelector}
+                        aria-haspopup="true"
                     >
                         <h1 style={{ cursor: 'pointer', fontSize: '1.5rem', margin: 0, lineHeight: 1 }}>{zone.name}</h1>
                         <ChevronDown size={24} color="var(--text-muted)" style={{ transform: showZoneSelector ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
-                    </div>
+                    </button>
 
                     {onToggleZoneStorage && (
                         <button
@@ -564,10 +568,14 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                                 return (
                                     <div
                                         key={`${z._owner}_${z.id}`}
+                                        role="option"
+                                        tabIndex={0}
+                                        aria-selected={isActive}
                                         onClick={() => {
                                             onSwitchZone(z);
                                             setShowZoneSelector(false);
                                         }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSwitchZone(z); setShowZoneSelector(false); } }}
                                         style={{
                                             padding: '0.5rem 0.75rem',
                                             cursor: 'pointer',
@@ -597,26 +605,28 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                             })}
                             <div style={{ height: '1px', background: 'var(--border)', margin: '0.5rem 0' }}></div>
                             {onAddAccount && (
-                                <div
+                                <button
+                                    className="unstyled"
                                     onClick={() => { setShowZoneSelector(false); onAddAccount(); }}
-                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}
+                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', width: '100%' }}
                                     onMouseEnter={e => e.currentTarget.style.background = '#fff7ed'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
                                     <Plus size={14} />
                                     {t('addNewToken')}
-                                </div>
+                                </button>
                             )}
                             {onAddSession && (
-                                <div
+                                <button
+                                    className="unstyled"
                                     onClick={() => { setShowZoneSelector(false); onAddSession(); }}
-                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}
+                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', width: '100%' }}
                                     onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
                                     <User size={14} />
                                     {t('loginAnotherAccount')}
-                                </div>
+                                </button>
                             )}
                         </div>
                     )}
@@ -843,10 +853,10 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                                             </td>
                                             <td>
                                                 <div style={{ display: 'flex', gap: '4px' }}>
-                                                    <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => startEdit(record)}>
+                                                    <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => startEdit(record)} aria-label={`Edit ${record.name}`}>
                                                         <Edit2 size={16} color="var(--primary)" />
                                                     </button>
-                                                    <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => deleteRecord(record.id)}>
+                                                    <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => deleteRecord(record.id)} aria-label={`Delete ${record.name}`}>
                                                         <Trash2 size={16} color="var(--error)" />
                                                     </button>
                                                 </div>
@@ -863,7 +873,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                                             <span className="dns-type-label">{record.type}</span>
                                         </div>
                                         {/* 下部 1.0：主内容 */}
-                                        <div className="record-header" onClick={() => toggleExpand(record.id)}>
+                                        <div className="record-header" role="button" tabIndex={0} onClick={() => toggleExpand(record.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(record.id); } }} aria-expanded={expandedRecords.has(record.id)}>
                                             <div className="record-header-main">
                                                 <div className="dns-selection" onClick={e => e.stopPropagation()}>
                                                     <input
@@ -889,10 +899,10 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                                                         <span className="slider"></span>
                                                     </label>
                                                 )}
-                                                <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => startEdit(record)}>
+                                                <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => startEdit(record)} aria-label={`Edit ${record.name}`}>
                                                     <Edit2 size={16} color="var(--primary)" />
                                                 </button>
-                                                <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => deleteRecord(record.id)}>
+                                                <button className="btn btn-outline" style={{ padding: '0.4rem', border: 'none' }} onClick={() => deleteRecord(record.id)} aria-label={`Delete ${record.name}`}>
                                                     <Trash2 size={16} color="var(--error)" />
                                                 </button>
                                             </div>
@@ -900,11 +910,11 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                                         {expandedRecords.has(record.id) && (
                                             <div className="record-details">
                                                 <div className="detail-row" style={{ alignItems: 'stretch' }}>
-                                                    <div className="record-content-cell" title={record.content} onClick={(e) => {
+                                                    <div className="record-content-cell" title={record.content} role="button" tabIndex={0} onClick={(e) => {
                                                         e.stopPropagation();
                                                         navigator.clipboard.writeText(record.content);
                                                         showToast(t('copied'));
-                                                    }}>
+                                                    }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText(record.content); showToast(t('copied')); } }} aria-label={`Copy content: ${record.content}`}>
                                                         {record.content}
                                                     </div>
                                                     <div className="ttl-box">
@@ -1061,7 +1071,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}
                     onClick={(e) => { if (e.target === e.currentTarget) setShowDNSModal(false); }}
                 >
-                    <div className="glass-card fade-in" style={{ padding: '2rem', maxWidth: '450px', width: '90%', position: 'relative' }}>
+                    <div className="glass-card fade-in" role="dialog" aria-label={editingRecord ? t('editRecord') : t('addModalTitle')} style={{ padding: '2rem', maxWidth: '450px', width: '90%', position: 'relative' }}>
                         <h2 style={{ marginBottom: '1.5rem' }}>{editingRecord ? t('editRecord') : t('addModalTitle')}</h2>
                         <form onSubmit={handleDNSSubmit}>
                             <div className="input-row">
@@ -1338,7 +1348,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}
                     onClick={(e) => { if (e.target === e.currentTarget) { setShowSaaSModal(false); setEditingSaaS(null); setNewSaaS(initialSaaS); } }}
                 >
-                    <div className="glass-card fade-in" style={{ padding: '2rem', maxWidth: '450px', width: '90%', position: 'relative' }}>
+                    <div className="glass-card fade-in" role="dialog" aria-label={editingSaaS ? t('editSaaS') : t('addSaaS')} style={{ padding: '2rem', maxWidth: '450px', width: '90%', position: 'relative' }}>
                         <h2 style={{ marginBottom: '1.5rem' }}>{editingSaaS ? t('editSaaS') : t('addSaaS')}</h2>
                         <form onSubmit={handleSaaSSubmit}>
                             <div className="input-row">
@@ -1430,7 +1440,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}
                     onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal({ ...confirmModal, show: false }); }}
                 >
-                    <div className="glass-card fade-in" style={{ padding: '2rem', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+                    <div className="glass-card fade-in" role="dialog" aria-label={confirmModal.title} style={{ padding: '2rem', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
                         <div style={{ width: '48px', height: '48px', background: '#fff5f5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
                             <AlertCircle size={24} color="var(--error)" />
                         </div>
@@ -1452,10 +1462,10 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}
                     onClick={(e) => { if (e.target === e.currentTarget) setShowVerifyModal(false); }}
                 >
-                    <div className="glass-card fade-in" style={{ padding: '2rem', maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div className="glass-card fade-in" role="dialog" aria-label={t('verificationRecords')} style={{ padding: '2rem', maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <h2 style={{ margin: 0 }}>{t('verificationRecords')}</h2>
-                            <button className="btn btn-outline" style={{ padding: '4px', border: 'none' }} onClick={() => setShowVerifyModal(false)}>
+                            <button className="btn btn-outline" style={{ padding: '4px', border: 'none' }} onClick={() => setShowVerifyModal(false)} aria-label="Close">
                                 <X size={20} />
                             </button>
                         </div>

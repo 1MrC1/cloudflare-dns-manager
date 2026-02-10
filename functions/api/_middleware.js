@@ -1,24 +1,84 @@
 import { checkRateLimit } from './_rate-limit.js';
 
+// Endpoints that accept non-JSON content types (e.g. multipart form data for file uploads)
+const NON_JSON_ENDPOINTS = [
+    /^\/api\/zones\/[^/]+\/dns_import$/
+];
+
+function isNonJsonEndpoint(pathname) {
+    return NON_JSON_ENDPOINTS.some(re => re.test(pathname));
+}
+
+// Add CORS and security headers to a response
+function withCorsHeaders(response, origin) {
+    const headers = new Headers(response.headers);
+    if (origin) {
+        headers.set('Access-Control-Allow-Origin', origin);
+        headers.set('Access-Control-Allow-Credentials', 'true');
+        headers.set('Vary', 'Origin');
+    }
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers
+    });
+}
+
 export async function onRequest(context) {
     const { request, env, next } = context;
     const url = new URL(request.url);
+    const method = request.method.toUpperCase();
+    const origin = request.headers.get('Origin');
+
+    // --- CORS: Handle preflight OPTIONS requests ---
+    if (method === 'OPTIONS') {
+        const headers = {
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cloudflare-Token, X-Managed-Account-Index',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Max-Age': '86400'
+        };
+        // Only reflect the origin if it matches the request's own origin (same-site)
+        // For a Cloudflare Pages app the API and frontend share the same origin,
+        // so we reflect the Origin header back. If Origin is absent (same-origin
+        // navigational requests), we omit the ACAO header entirely which is fine.
+        if (origin) {
+            headers['Access-Control-Allow-Origin'] = origin;
+            headers['Vary'] = 'Origin';
+        }
+        return new Response(null, { status: 204, headers });
+    }
+
+    // --- CSRF: Content-Type check for state-changing requests ---
+    const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    if (MUTATION_METHODS.includes(method) && !isNonJsonEndpoint(url.pathname)) {
+        const contentType = request.headers.get('Content-Type') || '';
+        if (!contentType.includes('application/json')) {
+            const resp = new Response(JSON.stringify({ error: 'Content-Type must be application/json' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+            return withCorsHeaders(resp, origin);
+        }
+    }
 
     // Rate limiting on auth endpoints (before any processing)
     const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
     const retryAfter = await checkRateLimit(env.CF_DNS_KV, ip, url.pathname);
     if (retryAfter) {
-        return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
+        const resp = new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
             status: 429,
             headers: { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) }
         });
+        return withCorsHeaders(resp, origin);
     }
 
     // Skip auth for public APIs
     if (url.pathname === '/api/login' || url.pathname === '/api/setup-account' || url.pathname === '/api/register' || url.pathname === '/api/public-settings'
         || url.pathname === '/api/passkey/login-options' || url.pathname === '/api/passkey/login-verify'
         || url.pathname === '/api/refresh' || url.pathname === '/api/verify-totp') {
-        return next();
+        const response = await next();
+        return withCorsHeaders(response, origin);
     }
 
     // Get tokens from headers
@@ -28,7 +88,8 @@ export async function onRequest(context) {
     // Priority 1: Client Mode (Token provided directly by user)
     if (clientToken) {
         context.data.cfToken = clientToken;
-        return next();
+        const response = await next();
+        return withCorsHeaders(response, origin);
     }
 
     // Priority 2: Server Mode (JWT provided)
@@ -37,10 +98,10 @@ export async function onRequest(context) {
         const serverSecret = env.APP_PASSWORD;
 
         if (!serverSecret) {
-            return new Response(JSON.stringify({ error: 'Server-side Managed Mode is not configured (missing APP_PASSWORD).' }), {
+            return withCorsHeaders(new Response(JSON.stringify({ error: 'Server-side Managed Mode is not configured (missing APP_PASSWORD).' }), {
                 status: 403,
                 headers: { 'Content-Type': 'application/json' }
-            });
+            }), origin);
         }
 
         try {
@@ -56,16 +117,17 @@ export async function onRequest(context) {
             // Admin-only routes: /api/admin/users (settings is accessible by all users for their own tokens)
             if (url.pathname.startsWith('/api/admin/') && url.pathname !== '/api/admin/settings') {
                 if (role !== 'admin') {
-                    return new Response(JSON.stringify({ error: 'Admin access required.' }), {
+                    return withCorsHeaders(new Response(JSON.stringify({ error: 'Admin access required.' }), {
                         status: 403,
                         headers: { 'Content-Type': 'application/json' }
-                    });
+                    }), origin);
                 }
             }
 
             // Admin routes, settings, account management, passkey management, and logout don't need a CF token
             if (url.pathname.startsWith('/api/admin/') || url.pathname.startsWith('/api/account/') || url.pathname.startsWith('/api/passkey/') || url.pathname === '/api/logout') {
-                return next();
+                const response = await next();
+                return withCorsHeaders(response, origin);
             }
 
             // Resolve CF token from per-user storage
@@ -87,28 +149,29 @@ export async function onRequest(context) {
             }
 
             if (!serverToken) {
-                return new Response(JSON.stringify({ error: 'Selected managed account is not configured.' }), {
+                return withCorsHeaders(new Response(JSON.stringify({ error: 'Selected managed account is not configured.' }), {
                     status: 403,
                     headers: { 'Content-Type': 'application/json' }
-                });
+                }), origin);
             }
 
             context.data.cfToken = serverToken;
-            return next();
+            const response = await next();
+            return withCorsHeaders(response, origin);
         } catch (e) {
-            return new Response(JSON.stringify({ error: 'Invalid or expired session.', message: e.message }), {
+            return withCorsHeaders(new Response(JSON.stringify({ error: 'Invalid or expired session.', message: e.message }), {
                 status: 401,
                 headers: { 'Content-Type': 'application/json' }
-            });
+            }), origin);
         }
     }
 
     // No valid auth method found
-    return new Response(JSON.stringify({
+    return withCorsHeaders(new Response(JSON.stringify({
         error: 'Authentication Required',
         message: 'Please provide either X-Cloudflare-Token or a valid Authorization header.'
     }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
-    });
+    }), origin);
 }

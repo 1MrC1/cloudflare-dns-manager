@@ -61,10 +61,10 @@ const AddSessionModal = ({ show, onClose, auth, t, showToast, onSessionAdded }) 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--modal-overlay)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 200, padding: '1rem' }}
             onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
-            <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '380px', padding: '1.5rem' }}>
+            <div className="glass-card fade-in" role="dialog" aria-label={t('addSessionTitle')} style={{ width: '100%', maxWidth: '380px', padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h3 style={{ fontSize: '1rem', margin: 0 }}>{t('addSessionTitle')}</h3>
-                    <button onClick={handleClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                    <button onClick={handleClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex' }} aria-label="Close">
                         <X size={18} color="var(--text-muted)" />
                     </button>
                 </div>

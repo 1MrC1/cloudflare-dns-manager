@@ -71,7 +71,7 @@ const PasskeyModal = ({ show, onClose, auth, t, showToast }) => {
         try {
             const res = await fetch(`/api/passkey/credentials?id=${encodeURIComponent(credId)}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${auth.token}` }
+                headers: { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' }
             });
             if (res.ok) {
                 showToast(t('passkeyDeleted'), 'success');
@@ -85,12 +85,12 @@ const PasskeyModal = ({ show, onClose, auth, t, showToast }) => {
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--modal-overlay)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 200, padding: '1rem' }}
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '420px', padding: '1.5rem' }}>
+            <div className="glass-card fade-in" role="dialog" aria-label={t('passkeyManage')} style={{ width: '100%', maxWidth: '420px', padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Fingerprint size={18} /> {t('passkeyManage')}
                     </h3>
-                    <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                    <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex' }} aria-label="Close">
                         <X size={18} color="var(--text-muted)" />
                     </button>
                 </div>
@@ -118,7 +118,8 @@ const PasskeyModal = ({ show, onClose, auth, t, showToast }) => {
                                 </div>
                                 <button onClick={() => handleDelete(pk.id)}
                                     style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex', color: 'var(--error)' }}
-                                    title="Delete">
+                                    title="Delete"
+                                    aria-label={`Delete passkey ${pk.name}`}>
                                     <Trash2 size={14} />
                                 </button>
                             </div>

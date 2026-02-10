@@ -407,7 +407,7 @@ const App = () => {
 
     const handleRemoveAccount = async (accountId) => {
         if (!confirm(t('confirmRemoveAccount'))) return;
-        const adminHeaders = { 'Authorization': `Bearer ${auth.token}` };
+        const adminHeaders = { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' };
         try {
             const res = await fetch(`/api/admin/settings?index=${accountId}`, {
                 method: 'DELETE',
@@ -585,7 +585,7 @@ const App = () => {
             } else {
                 // Server → Local: retrieve token from server, save locally, delete from server
                 const idx = zoneObj._accountIdx || 0;
-                const adminHeaders = { 'Authorization': `Bearer ${freshAuth.token}` };
+                const adminHeaders = { 'Authorization': `Bearer ${freshAuth.token}`, 'Content-Type': 'application/json' };
                 const res = await fetch(`/api/admin/settings?retrieve=${idx}`, { headers: adminHeaders });
                 const data = await res.json();
                 if (res.ok && data.token) {
@@ -698,16 +698,16 @@ const App = () => {
                     `}</style>
                     {toast.type === 'success' ? <CheckCircle size={18} color="var(--success)" /> : <AlertCircle size={18} color="var(--error)" />}
                     <span style={{ fontSize: '0.875rem', fontWeight: '600', whiteSpace: 'nowrap' }}>{toast.message}</span>
-                    <button onClick={() => setToast(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex', marginLeft: '4px' }}>
+                    <button onClick={() => setToast(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex', marginLeft: '4px' }} aria-label="Close notification">
                         <X size={14} color="var(--text-muted)" />
                     </button>
                 </div>
             )}
             <header>
-                <div className="logo" onClick={() => window.location.reload()} style={{ cursor: 'pointer' }}>
+                <button className="unstyled logo" onClick={() => window.location.reload()} aria-label="DNS Manager - Reload">
                     <Zap size={22} color="var(--primary)" />
                     DNS <span>Manager</span>
-                </div>
+                </button>
 
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <button
@@ -722,6 +722,7 @@ const App = () => {
                             e.currentTarget.style.color = 'var(--text-muted)';
                         }}
                         title={lang === 'zh' ? 'English' : '中文'}
+                        aria-label={lang === 'zh' ? 'Switch to English' : '切换到中文'}
                     >
                         <Languages size={18} />
                     </button>
@@ -738,6 +739,7 @@ const App = () => {
                             e.currentTarget.style.color = 'var(--text-muted)';
                         }}
                         title={darkMode ? t('lightMode') : t('darkMode')}
+                        aria-label={darkMode ? t('lightMode') : t('darkMode')}
                     >
                         {darkMode ? <Sun size={18} /> : <Moon size={18} />}
                     </button>
@@ -766,6 +768,7 @@ const App = () => {
                                         padding: '2px', display: 'flex', color: 'var(--primary)',
                                         opacity: searchQuery.trim().length < 2 ? 0.4 : 1
                                     }}
+                                    aria-label={t('globalSearchPlaceholder')}
                                 >
                                     {searchLoading ? <RefreshCw className="spin" size={13} /> : <Search size={13} />}
                                 </button>
@@ -782,7 +785,7 @@ const App = () => {
                                                 ? t('searchResultCount').replace('{count}', searchResults.length)
                                                 : t('searchNoResults')}
                                         </span>
-                                        <button onClick={() => setSearchResults(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '2px', display: 'flex' }}>
+                                        <button onClick={() => setSearchResults(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '2px', display: 'flex' }} aria-label="Close search results">
                                             <X size={14} color="var(--text-muted)" />
                                         </button>
                                     </div>
@@ -794,11 +797,22 @@ const App = () => {
                                     {searchResults.slice(0, searchResultsVisible).map((result, idx) => (
                                         <div
                                             key={idx}
+                                            role="button"
+                                            tabIndex={0}
                                             onClick={() => {
                                                 const matchedZone = zones.find(z => z.name === result.zoneName || z.id === result.zoneId);
                                                 if (matchedZone) selectZone(matchedZone, auth);
                                                 setSearchResults(null);
                                                 setSearchQuery('');
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    const matchedZone = zones.find(z => z.name === result.zoneName || z.id === result.zoneId);
+                                                    if (matchedZone) selectZone(matchedZone, auth);
+                                                    setSearchResults(null);
+                                                    setSearchQuery('');
+                                                }
                                             }}
                                             style={{
                                                 padding: '0.5rem 0.6rem', borderRadius: '6px', cursor: 'pointer',
@@ -845,6 +859,7 @@ const App = () => {
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = 'var(--primary)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                             title={t('bulkOperations')}
+                            aria-label={t('bulkOperations')}
                         >
                             <Layers size={18} />
                         </button>
@@ -859,6 +874,7 @@ const App = () => {
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = 'var(--primary)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                             title={t('usersManagement')}
+                            aria-label={t('usersManagement')}
                         >
                             <Settings size={18} />
                         </button>
@@ -910,13 +926,16 @@ const App = () => {
                             onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             title={t('switchAccount')}
+                            aria-label={t('switchAccount')}
+                            aria-expanded={showAccountSelector}
+                            aria-haspopup="true"
                         >
                             <User size={16} />
                             <span style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{auth.username || 'admin'}</span>
                             <ChevronDown size={14} />
                         </button>
                         {showAccountSelector && (
-                            <div className="glass-card fade-in" style={{
+                            <div className="glass-card fade-in" role="menu" aria-label={t('switchAccount')} style={{
                                 position: 'absolute',
                                 top: '120%',
                                 right: 0,
@@ -960,65 +979,75 @@ const App = () => {
                                 {auth.mode === 'server' && (
                                     <>
                                         <div style={{ height: '1px', background: 'var(--border)', margin: '0.25rem 0' }}></div>
-                                        <div
+                                        <button
+                                            className="unstyled"
+                                            role="menuitem"
                                             onClick={() => { setShowAccountSelector(false); setShowAddSession(true); }}
-                                            style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}
+                                            style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', width: '100%' }}
                                             onMouseEnter={e => e.currentTarget.style.background = 'var(--select-active-bg)'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                         >
                                             <Plus size={14} />
                                             {t('loginAnotherAccount')}
-                                        </div>
+                                        </button>
                                     </>
                                 )}
 
                                 <div style={{ height: '1px', background: 'var(--border)', margin: '0.25rem 0' }}></div>
 
                                 {auth.mode === 'server' && auth.username !== 'admin' && (
-                                    <div
+                                    <button
+                                        className="unstyled"
+                                        role="menuitem"
                                         onClick={() => { setShowAccountSelector(false); setShowChangePassword(true); }}
-                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)' }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                     >
                                         <Key size={14} />
                                         {t('changePassword')}
-                                    </div>
+                                    </button>
                                 )}
 
                                 {auth.mode === 'server' && window.PublicKeyCredential && (
-                                    <div
+                                    <button
+                                        className="unstyled"
+                                        role="menuitem"
                                         onClick={() => { setShowAccountSelector(false); setShowPasskeyModal(true); }}
-                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)' }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                     >
                                         <Fingerprint size={14} />
                                         {t('passkeyManage')}
-                                    </div>
+                                    </button>
                                 )}
 
                                 {auth.mode === 'server' && (
-                                    <div
+                                    <button
+                                        className="unstyled"
+                                        role="menuitem"
                                         onClick={() => { setShowAccountSelector(false); setShowTotpModal(true); }}
-                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)' }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)', width: '100%' }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                     >
                                         <Shield size={14} />
                                         {t('totpManage')}
-                                    </div>
+                                    </button>
                                 )}
 
-                                <div
+                                <button
+                                    className="unstyled"
+                                    role="menuitem"
                                     onClick={handleLogout}
-                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)' }}
+                                    style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', width: '100%' }}
                                     onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
                                     <LogOut size={14} />
                                     {t('logout')}
-                                </div>
+                                </button>
                             </div>
                         )}
                     </div>
@@ -1079,7 +1108,10 @@ const App = () => {
                                             {zones.map((z) => (
                                                 <div
                                                     key={z.id}
+                                                    role="button"
+                                                    tabIndex={0}
                                                     onClick={() => selectZone(z, auth)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectZone(z, auth); } }}
                                                     style={{
                                                         display: 'flex', alignItems: 'center', gap: '0.5rem',
                                                         padding: '0.5rem 0.6rem', borderRadius: '6px',
