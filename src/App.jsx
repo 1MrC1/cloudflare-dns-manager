@@ -70,16 +70,14 @@ const App = () => {
     const [searchLoading, setSearchLoading] = useState(false);
     const searchRef = useRef(null);
 
-    // Sync isLocalMode when auth/account changes
+    // Sync isLocalMode from global preference
     useEffect(() => {
         if (auth && auth.mode === 'server') {
-            const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
-            const localKey = `${auth.username || 'admin'}_${auth.currentAccountIndex || 0}`;
-            setIsLocalMode(!!localTokens[localKey]);
+            setIsLocalMode(localStorage.getItem('global_local_mode') === 'true');
         } else {
             setIsLocalMode(false);
         }
-    }, [auth?.mode, auth?.currentAccountIndex, auth?.username]);
+    }, [auth?.mode]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -116,41 +114,17 @@ const App = () => {
 
         const REFRESH_INTERVAL = 12 * 60 * 1000; // 12 minutes
 
-        const refreshAccessToken = async () => {
-            try {
-                const res = await fetch('/api/refresh', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refreshToken: auth.refreshToken })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.token) {
-                        const updatedAuth = { ...auth, token: data.token };
-                        // Update token in the active session as well
-                        const si = updatedAuth.activeSessionIndex || 0;
-                        if (updatedAuth.sessions && updatedAuth.sessions[si]) {
-                            const newSessions = [...updatedAuth.sessions];
-                            newSessions[si] = { ...newSessions[si], token: data.token };
-                            updatedAuth.sessions = newSessions;
-                        }
-                        if (data.refreshToken) {
-                            updatedAuth.refreshToken = data.refreshToken;
-                        }
-                        setAuth(updatedAuth);
-                        persistAuth(updatedAuth);
-                    }
-                } else {
-                    // Refresh failed - force logout
-                    handleLogout();
-                }
-            } catch (err) {
-                // Network error during refresh - force logout
+        const doRefresh = async () => {
+            const updated = await tryRefreshToken(auth);
+            if (updated) {
+                setAuth(updated);
+                persistAuth(updated);
+            } else {
                 handleLogout();
             }
         };
 
-        const intervalId = setInterval(refreshAccessToken, REFRESH_INTERVAL);
+        const intervalId = setInterval(doRefresh, REFRESH_INTERVAL);
         return () => clearInterval(intervalId);
     }, [auth?.refreshToken, auth?.mode]);
 
@@ -184,16 +158,20 @@ const App = () => {
         const allZones = [];
 
         // Fetch zones for each session+account in parallel
+        const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
         const promises = [];
         for (let si = 0; si < sessions.length; si++) {
             const session = sessions[si];
             const accounts = session.accounts || [];
             if (accounts.length === 0) {
-                // No CF tokens for this user — fetch with just JWT to see if there are env-based tokens
+                // Check if there's a local token for this session's default account
+                const localKey = `${session.username || 'admin'}_0`;
+                const localToken = localTokens[localKey];
+                const headers = localToken
+                    ? { 'X-Cloudflare-Token': localToken }
+                    : { 'Authorization': `Bearer ${session.token}`, 'X-Managed-Account-Index': '0' };
                 promises.push(
-                    fetch('/api/zones', {
-                        headers: { 'Authorization': `Bearer ${session.token}`, 'X-Managed-Account-Index': '0' }
-                    }).then(async res => {
+                    fetch('/api/zones', { headers }).then(async res => {
                         if (res.ok) {
                             const data = await res.json();
                             return (data.result || []).map(z => ({ ...z, _sessionIdx: si, _accountIdx: 0, _owner: session.username }));
@@ -204,10 +182,14 @@ const App = () => {
                 continue;
             }
             for (const acc of accounts) {
+                // Check if there's a local token for this session+account
+                const localKey = `${session.username || 'admin'}_${acc.id}`;
+                const localToken = localTokens[localKey];
+                const headers = localToken
+                    ? { 'X-Cloudflare-Token': localToken }
+                    : { 'Authorization': `Bearer ${session.token}`, 'X-Managed-Account-Index': String(acc.id) };
                 promises.push(
-                    fetch('/api/zones', {
-                        headers: { 'Authorization': `Bearer ${session.token}`, 'X-Managed-Account-Index': String(acc.id) }
-                    }).then(async res => {
+                    fetch('/api/zones', { headers }).then(async res => {
                         if (res.ok) {
                             const data = await res.json();
                             return (data.result || []).map(z => ({ ...z, _sessionIdx: si, _accountIdx: acc.id, _owner: session.username }));
@@ -254,14 +236,62 @@ const App = () => {
 
 
 
+    // Try to refresh token, returns updated auth or null on failure
+    const tryRefreshToken = async (authData) => {
+        if (!authData.refreshToken) return null;
+        try {
+            const res = await fetch('/api/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken: authData.refreshToken })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.token) {
+                    const updated = { ...authData, token: data.token };
+                    const si = updated.activeSessionIndex || 0;
+                    if (updated.sessions && updated.sessions[si]) {
+                        const newSessions = [...updated.sessions];
+                        newSessions[si] = { ...newSessions[si], token: data.token };
+                        updated.sessions = newSessions;
+                    }
+                    if (data.refreshToken) updated.refreshToken = data.refreshToken;
+                    if (data.accounts) {
+                        updated.accounts = data.accounts;
+                        if (updated.sessions && updated.sessions[si]) {
+                            updated.sessions[si].accounts = data.accounts;
+                        }
+                    }
+                    return updated;
+                }
+            }
+        } catch (_e) { }
+        return null;
+    };
+
     useEffect(() => {
         const saved = localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session');
         if (saved) {
             try {
                 const credentials = JSON.parse(saved);
-                setAuth(credentials);
-                fetchZones(credentials);
-            } catch (e) {
+                // If we have a refresh token, refresh immediately to get a fresh access token
+                if (credentials.refreshToken && credentials.mode === 'server') {
+                    tryRefreshToken(credentials).then(updated => {
+                        if (updated) {
+                            setAuth(updated);
+                            persistAuth(updated);
+                            fetchZones(updated);
+                        } else {
+                            // Refresh failed — try with existing token (may still work)
+                            setAuth(credentials);
+                            fetchZones(credentials);
+                        }
+                    });
+                } else {
+                    setAuth(credentials);
+                    fetchZones(credentials);
+                }
+            } catch (_e) {
                 localStorage.removeItem('auth_session');
                 sessionStorage.removeItem('auth_session');
             }
@@ -424,48 +454,74 @@ const App = () => {
     const handleToggleStorage = async () => {
         if (auth.mode !== 'server') return;
         setStorageToggleLoading(true);
-        const idx = auth.currentAccountIndex || 0;
-        const localKey = `${auth.username || 'admin'}_${idx}`;
-        // Always use JWT for admin API calls (not the local token)
-        const adminHeaders = { 'Authorization': `Bearer ${auth.token}` };
+        const sessions = auth.sessions || [];
 
         try {
             if (!isLocalMode) {
-                // Server → Local: retrieve token from KV, save to localStorage, delete from KV
-                const res = await fetch(`/api/admin/settings?retrieve=${idx}`, {
-                    headers: adminHeaders
-                });
-                const data = await res.json();
-                if (res.ok && data.token) {
-                    const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
-                    localTokens[localKey] = data.token;
-                    localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
-                    await fetch(`/api/admin/settings?index=${idx}`, {
-                        method: 'DELETE',
-                        headers: adminHeaders
-                    });
-                    setIsLocalMode(true);
-                    showToast(t('switchedToLocal'), 'success');
-                }
-            } else {
-                // Local → Server: read from localStorage, save to KV, remove from localStorage
+                // Server → Local: move ALL tokens from KV to localStorage
                 const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
-                const token = localTokens[localKey];
-                if (token) {
-                    const res = await fetch('/api/admin/settings', {
-                        method: 'POST',
-                        headers: { ...adminHeaders, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token, accountIndex: idx })
-                    });
-                    if (res.ok) {
-                        delete localTokens[localKey];
-                        localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
-                        setIsLocalMode(false);
-                        showToast(t('switchedToServer'), 'success');
+                for (const session of sessions) {
+                    const jwt = session.token;
+                    const headers = { 'Authorization': `Bearer ${jwt}` };
+                    // Get this user's accounts list
+                    const accRes = await fetch('/api/admin/settings', { headers });
+                    if (!accRes.ok) continue;
+                    const accData = await accRes.json();
+                    const accounts = accData.accounts || [];
+                    // Retrieve each token and save locally
+                    for (const acc of accounts) {
+                        const retrieveRes = await fetch(`/api/admin/settings?retrieve=${acc.id}`, { headers });
+                        if (!retrieveRes.ok) continue;
+                        const retrieveData = await retrieveRes.json();
+                        if (retrieveData.token) {
+                            const localKey = `${session.username || 'admin'}_${acc.id}`;
+                            localTokens[localKey] = retrieveData.token;
+                            // Delete from KV
+                            await fetch(`/api/admin/settings?index=${acc.id}`, { method: 'DELETE', headers });
+                        }
                     }
                 }
+                localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
+                localStorage.setItem('global_local_mode', 'true');
+                setIsLocalMode(true);
+                showToast(t('switchedToLocal'), 'success');
+            } else {
+                // Local → Server: move ALL tokens from localStorage back to KV
+                const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
+                for (const session of sessions) {
+                    const jwt = session.token;
+                    const headers = { 'Authorization': `Bearer ${jwt}`, 'Content-Type': 'application/json' };
+                    const prefix = `${session.username || 'admin'}_`;
+                    // Find all local tokens belonging to this session
+                    for (const [key, token] of Object.entries(localTokens)) {
+                        if (key.startsWith(prefix)) {
+                            const accId = parseInt(key.substring(prefix.length));
+                            const res = await fetch('/api/admin/settings', {
+                                method: 'POST', headers,
+                                body: JSON.stringify({ token, accountIndex: accId })
+                            });
+                            if (res.ok) delete localTokens[key];
+                        }
+                    }
+                }
+                localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
+                localStorage.setItem('global_local_mode', 'false');
+                setIsLocalMode(false);
+                showToast(t('switchedToServer'), 'success');
+                // Refresh accounts from server after migration
+                const si = auth.activeSessionIndex || 0;
+                const adminHeaders = { 'Authorization': `Bearer ${auth.token}` };
+                const accRes = await fetch('/api/admin/settings', { headers: adminHeaders });
+                if (accRes.ok) {
+                    const accData = await accRes.json();
+                    const updatedAccounts = accData.accounts || [];
+                    const newSessions = [...sessions];
+                    if (newSessions[si]) newSessions[si] = { ...newSessions[si], accounts: updatedAccounts };
+                    const newAuth = { ...auth, accounts: updatedAccounts, sessions: newSessions };
+                    setAuth(newAuth);
+                    persistAuth(newAuth);
+                }
             }
-            // Refresh zones with the same auth
             fetchZones(auth);
         } catch (err) { }
         setStorageToggleLoading(false);
@@ -969,12 +1025,13 @@ const App = () => {
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '0.4rem',
                                 fontSize: '0.75rem', fontWeight: '600',
-                                padding: '4px 10px', borderRadius: '6px', cursor: 'pointer',
+                                padding: '4px 10px', borderRadius: '6px',
                                 border: '1px solid',
                                 borderColor: isLocalMode ? 'var(--primary)' : 'var(--border)',
                                 background: isLocalMode ? 'var(--select-active-bg)' : 'transparent',
                                 color: isLocalMode ? 'var(--primary)' : 'var(--text-muted)',
-                                transition: 'all 0.2s'
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
                             }}
                             title={isLocalMode ? t('switchedToLocal') : t('switchedToServer')}
                         >
@@ -982,9 +1039,16 @@ const App = () => {
                             {isLocalMode ? t('storageLocal') : t('storageServer')}
                         </button>
                     ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: '500' }}>
-                            <Server size={14} />
-                            {t('clientOnly')}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            fontSize: '0.75rem', fontWeight: '600',
+                            padding: '4px 10px', borderRadius: '6px',
+                            border: '1px solid var(--border)',
+                            background: 'transparent',
+                            color: 'var(--text-muted)',
+                        }}>
+                            <Server size={13} />
+                            {t('clientMode')}
                         </div>
                     )}
 
