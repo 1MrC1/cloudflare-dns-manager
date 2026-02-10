@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Server, User, Shield, Key, LogOut, Plus, Trash2, Edit2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Copy, Settings, Save, Fingerprint, Moon, Sun, Search, Upload } from 'lucide-react';
+import { Server, User, Shield, Key, LogOut, Plus, Trash2, Edit2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Copy, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe } from 'lucide-react';
 import { startRegistration } from '@simplewebauthn/browser';
 import useTranslate from './hooks/useTranslate.js';
 import { getAuthHeaders, hashPassword } from './utils/auth.js';
@@ -624,7 +624,8 @@ const App = () => {
                 localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
                 if (selectedZone && selectedZone._localKey === key) setSelectedZone(null);
                 showToast(t('uploadedToServer'), 'success');
-                fetchZones(auth);
+                const newAuth = await refreshAuthAccounts(auth);
+                fetchZones(newAuth);
             } else {
                 showToast(t('tokenSaveFailed'), 'error');
             }
@@ -632,6 +633,23 @@ const App = () => {
             showToast(t('tokenSaveFailed'), 'error');
         }
         setStorageToggleLoading(false);
+    };
+
+    const refreshAuthAccounts = async (authData) => {
+        const si = authData.activeSessionIndex || 0;
+        const adminHeaders = { 'Authorization': `Bearer ${authData.token}` };
+        const accRes = await fetch('/api/admin/settings', { headers: adminHeaders });
+        if (accRes.ok) {
+            const accData = await accRes.json();
+            const updatedAccounts = accData.accounts || [];
+            const newSessions = [...(authData.sessions || [])];
+            if (newSessions[si]) newSessions[si] = { ...newSessions[si], accounts: updatedAccounts };
+            const newAuth = { ...authData, _localToken: null, accounts: updatedAccounts, sessions: newSessions };
+            setAuth(newAuth);
+            persistAuth(newAuth);
+            return newAuth;
+        }
+        return authData;
     };
 
     const handleToggleZoneStorage = async (zoneObj) => {
@@ -654,6 +672,9 @@ const App = () => {
                         delete localTokens[zoneObj._localKey];
                         localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
                         showToast(t('uploadedToServer'), 'success');
+                        const newAuth = await refreshAuthAccounts(auth);
+                        setSelectedZone(null);
+                        fetchZones(newAuth);
                     }
                 }
             } else {
@@ -670,10 +691,11 @@ const App = () => {
                     localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
                     await fetch(`/api/admin/settings?index=${idx}`, { method: 'DELETE', headers: adminHeaders });
                     showToast(t('switchedToLocal'), 'success');
+                    const newAuth = await refreshAuthAccounts(auth);
+                    setSelectedZone(null);
+                    fetchZones(newAuth);
                 }
             }
-            setSelectedZone(null);
-            fetchZones(auth);
         } catch (_e) {
             showToast(t('tokenSaveFailed'), 'error');
         }
@@ -1907,62 +1929,56 @@ const App = () => {
                                         {t('localModeDesc')}
                                     </p>
 
-                                    {/* Existing local tokens list */}
-                                    {(() => {
-                                        const tokens = getLocalTokensList();
-                                        return tokens.length > 0 ? (
-                                            <div className="glass-card" style={{ padding: '1rem', marginBottom: '1rem' }}>
-                                                <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>{t('localTokens')}</h4>
-                                                {tokens.map((item) => (
-                                                    <div key={item.key} style={{
+                                    {/* Local domains list */}
+                                    {zones.length > 0 && (
+                                        <div className="glass-card" style={{ padding: '1rem', marginBottom: '1rem' }}>
+                                            <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>{t('localTokens')}</h4>
+                                            {zones.map((z) => (
+                                                <div
+                                                    key={z.id}
+                                                    onClick={() => selectZone(z, auth)}
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: '0.5rem',
                                                         padding: '0.5rem 0.6rem', borderRadius: '6px',
-                                                        marginBottom: '4px', background: 'var(--hover-bg)'
-                                                    }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                            <Shield size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                                {item.zones.length > 0 ? (
-                                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                                                                        {item.zones.map(name => (
-                                                                            <span key={name} style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text)' }}>{name}</span>
-                                                                        ))}
-                                                                    </div>
-                                                                ) : (
-                                                                    <code style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{item.masked}</code>
-                                                                )}
-                                                            </div>
-                                                            <span className="badge badge-orange" style={{ fontSize: '0.6rem', padding: '1px 5px', flexShrink: 0 }}>{t('localBadge')}</span>
-                                                            <button
-                                                                onClick={() => handleUploadLocalToken(item.key)}
-                                                                disabled={storageToggleLoading}
-                                                                style={{
-                                                                    border: 'none', background: 'transparent', cursor: 'pointer',
-                                                                    padding: '2px', display: 'flex', color: 'var(--text-muted)', flexShrink: 0
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
-                                                                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                                                                title={t('uploadToServer')}
-                                                            >
-                                                                <Upload size={13} />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleRemoveLocalToken(item.key)}
-                                                                style={{
-                                                                    border: 'none', background: 'transparent', cursor: 'pointer',
-                                                                    padding: '2px', display: 'flex', color: 'var(--text-muted)', flexShrink: 0
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-                                                                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                                                                title={t('removeLocalToken')}
-                                                            >
-                                                                <Trash2 size={13} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : null;
-                                    })()}
+                                                        marginBottom: '4px', background: 'var(--hover-bg)',
+                                                        cursor: 'pointer', transition: 'background 0.15s'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--select-active-bg)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                                >
+                                                    <Globe size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)', flex: 1 }}>{z.name}</span>
+                                                    <span className="badge badge-green" style={{ fontSize: '0.6rem', padding: '1px 5px', flexShrink: 0 }}>{z.status}</span>
+                                                    <span className="badge badge-orange" style={{ fontSize: '0.6rem', padding: '1px 5px', flexShrink: 0 }}>{t('localBadge')}</span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleToggleZoneStorage(z); }}
+                                                        disabled={zoneStorageLoading}
+                                                        style={{
+                                                            border: 'none', background: 'transparent', cursor: 'pointer',
+                                                            padding: '2px', display: 'flex', color: 'var(--text-muted)', flexShrink: 0
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                                                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                                                        title={t('uploadToServer')}
+                                                    >
+                                                        <Upload size={13} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleRemoveLocalToken(z._localKey); }}
+                                                        style={{
+                                                            border: 'none', background: 'transparent', cursor: 'pointer',
+                                                            padding: '2px', display: 'flex', color: 'var(--text-muted)', flexShrink: 0
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+                                                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                                                        title={t('removeLocalToken')}
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {/* Add local token card */}
                                     <div className="glass-card" style={{ padding: '1.25rem' }}>
