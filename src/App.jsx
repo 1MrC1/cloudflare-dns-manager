@@ -13,6 +13,7 @@ const PasskeyModal = React.lazy(() => import('./components/PasskeyModal.jsx'));
 const TotpModal = React.lazy(() => import('./components/TotpModal.jsx'));
 const BulkOperationsModal = React.lazy(() => import('./components/BulkOperationsModal.jsx'));
 const UserManagement = React.lazy(() => import('./components/UserManagement.jsx'));
+const Dashboard = React.lazy(() => import('./components/Dashboard.jsx'));
 
 const App = () => {
     const { t, lang, changeLang, toggleLang } = useTranslate();
@@ -1103,6 +1104,11 @@ const App = () => {
             <UserManagement show={showUserManagement} onClose={() => setShowUserManagement(false)} auth={auth} t={t} showToast={showToast} />
 
             <main style={{ paddingBottom: '3rem' }}>
+                {!loading && zones.length > 0 && (
+                    <div className="container" style={{ paddingBottom: 0 }}>
+                        <Dashboard zones={zones} auth={auth} t={t} />
+                    </div>
+                )}
                 {isLocalMode && auth.mode === 'server' ? (
                     /* === LOCAL MODE UI === */
                     selectedZone ? (

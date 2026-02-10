@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, Server, User, Plus, Trash2, RefreshCw, CheckCircle, ChevronDown, Upload, Download, FileText, Search } from 'lucide-react';
+import { Globe, Server, User, Plus, Trash2, RefreshCw, CheckCircle, ChevronDown, Upload, Download, FileText, Search, Clock } from 'lucide-react';
 import { getAuthHeaders } from '../utils/auth.ts';
 import ConfirmModal from './ConfirmModal.jsx';
 import DnsRecordModal from './DnsRecordModal.jsx';
@@ -7,6 +7,8 @@ import DnsImportModal from './DnsImportModal.jsx';
 import DnsHistoryTab from './DnsHistoryTab.jsx';
 import DnsRecordsTab from './DnsRecordsTab.jsx';
 import SaasTab from './SaasTab.jsx';
+
+const ScheduledChangesModal = React.lazy(() => import('./ScheduledChangesModal.jsx'));
 
 const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, auth, onBack, t, showToast, onAddAccount, onAddSession, onToggleZoneStorage, zoneStorageLoading }) => {
     const [tab, setTab] = useState('dns');
@@ -24,6 +26,10 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
 
     // Bulk import modal state
     const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+
+    // Scheduled changes state
+    const [showScheduledModal, setShowScheduledModal] = useState(false);
+    const [scheduledCount, setScheduledCount] = useState(0);
 
     // Import loading (for .txt file import in action bar)
     const [importLoading, setImportLoading] = useState(false);
@@ -56,7 +62,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
 
     // Lock body scroll when any modal is open
     useEffect(() => {
-        const anyModalOpen = showDNSModal || showBulkImportModal || confirmModal.show;
+        const anyModalOpen = showDNSModal || showBulkImportModal || confirmModal.show || showScheduledModal;
         if (anyModalOpen) {
             document.body.classList.add('modal-open');
         } else {
@@ -65,9 +71,66 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
         return () => {
             document.body.classList.remove('modal-open');
         };
-    }, [showDNSModal, showBulkImportModal, confirmModal.show]);
+    }, [showDNSModal, showBulkImportModal, confirmModal.show, showScheduledModal]);
 
     const getHeaders = (withType = false) => getAuthHeaders(auth, withType);
+
+    const fetchScheduledCount = async () => {
+        if (auth.mode !== 'server') return;
+        try {
+            const res = await fetch('/api/scheduled-changes', { headers: getHeaders() });
+            if (res.ok) {
+                const data = await res.json();
+                setScheduledCount((data.changes || []).length);
+            }
+        } catch (err) {
+            console.error('Failed to fetch scheduled count:', err);
+        }
+    };
+
+    const handleSchedule = async (record, editingRec, scheduledAt) => {
+        const action = editingRec ? 'update' : 'create';
+        const payload = { ...record };
+        const structuredTypes = ['SRV', 'CAA', 'URI', 'DS', 'TLSA', 'NAPTR', 'SSHFP', 'HTTPS', 'SVCB'];
+        if (!structuredTypes.includes(payload.type)) {
+            delete payload.data;
+        } else {
+            delete payload.content;
+            if (payload.type === 'SRV' || payload.type === 'URI') {
+                delete payload.priority;
+                if (payload.type === 'SRV' && payload.name) {
+                    payload.data = { ...payload.data, name: payload.name };
+                }
+            }
+        }
+
+        try {
+            const res = await fetch('/api/scheduled-changes', {
+                method: 'POST',
+                headers: getHeaders(true),
+                body: JSON.stringify({
+                    zoneId: zone.id,
+                    zoneName: zone.name,
+                    action,
+                    record: payload,
+                    recordId: editingRec ? editingRec.id : undefined,
+                    scheduledAt,
+                    accountIndex: auth.currentAccountIndex || 0
+                })
+            });
+            if (res.ok) {
+                showToast(t('scheduleCreated'));
+                setShowDNSModal(false);
+                setEditingRecord(null);
+                fetchScheduledCount();
+            } else {
+                const data = await res.json().catch(() => ({}));
+                showToast(data.error || t('errorOccurred'), 'error');
+            }
+        } catch (err) {
+            showToast(t('errorOccurred'), 'error');
+        }
+    };
 
     const fetchDNS = async () => {
         setLoading(true);
@@ -104,6 +167,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
         if (tab === 'saas') {
             fetchHostnames();
         }
+        fetchScheduledCount();
     }, [tab, zone.id]);
 
     const handleDNSSubmit = async (e, newRecord, editingRec) => {
@@ -277,6 +341,36 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                         >
                             {zoneStorageLoading ? <RefreshCw className="spin" size={11} /> : zone._localKey ? <Upload size={11} /> : <Server size={11} />}
                             {zone._localKey ? t('localBadge') : t('storageServer')}
+                        </button>
+                    )}
+
+                    {auth.mode === 'server' && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowScheduledModal(true); }}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                                fontSize: '0.65rem', fontWeight: 600,
+                                padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+                                border: '1px solid',
+                                borderColor: scheduledCount > 0 ? 'var(--primary)' : 'var(--border)',
+                                background: scheduledCount > 0 ? 'var(--select-active-bg)' : 'transparent',
+                                color: scheduledCount > 0 ? 'var(--primary)' : 'var(--text-muted)',
+                                transition: 'all 0.2s',
+                            }}
+                            title={t('scheduledChanges')}
+                        >
+                            <Clock size={12} />
+                            {t('scheduledChanges')}
+                            {scheduledCount > 0 && (
+                                <span style={{
+                                    background: 'var(--primary)', color: '#fff',
+                                    borderRadius: '50%', width: '16px', height: '16px',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '0.6rem', fontWeight: 700
+                                }}>
+                                    {scheduledCount}
+                                </span>
+                            )}
                         </button>
                     )}
 
@@ -546,6 +640,7 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                 editingRecord={editingRecord}
                 onClose={() => { setShowDNSModal(false); setEditingRecord(null); }}
                 onSubmit={handleDNSSubmit}
+                onSchedule={auth.mode === 'server' ? handleSchedule : undefined}
                 t={t}
                 showToast={showToast}
             />
@@ -568,6 +663,19 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                 setConfirmModal={setConfirmModal}
                 t={t}
             />
+
+            {/* Scheduled Changes Modal */}
+            {showScheduledModal && (
+                <React.Suspense fallback={null}>
+                    <ScheduledChangesModal
+                        show={showScheduledModal}
+                        onClose={() => { setShowScheduledModal(false); fetchScheduledCount(); }}
+                        auth={auth}
+                        t={t}
+                        showToast={showToast}
+                    />
+                </React.Suspense>
+            )}
         </div >
     );
 };

@@ -1,3 +1,4 @@
+# Production CI/CD pipeline — deploys to the main CF Pages project on push to main
 name: CI/CD
 
 on:

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, ChevronDown } from 'lucide-react';
+import { BookOpen, ChevronDown, Clock } from 'lucide-react';
 import CustomSelect from './CustomSelect.jsx';
 
-const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, t, showToast }) => {
+const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, onSchedule, t, showToast }) => {
     const defaultRecord = { type: 'A', name: '', content: '', ttl: 1, proxied: true, comment: '', tags: [], priority: 10, data: {} };
 
     const [newRecord, setNewRecord] = useState(defaultRecord);
     const [showTemplates, setShowTemplates] = useState(false);
     const [tagInput, setTagInput] = useState('');
+    const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+    const [scheduledAt, setScheduledAt] = useState('');
     const templateRef = useRef(null);
 
     // Initialize form when opening or when editingRecord changes
@@ -30,6 +32,8 @@ const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, t, showT
             }
             setTagInput('');
             setShowTemplates(false);
+            setShowSchedulePicker(false);
+            setScheduledAt('');
         }
     }, [show, editingRecord]);
 
@@ -91,6 +95,27 @@ const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, t, showT
     const handleSubmit = (e) => {
         e.preventDefault();
         onSubmit(e, newRecord, editingRecord);
+    };
+
+    const handleScheduleSubmit = () => {
+        if (!scheduledAt) return;
+        const scheduledDate = new Date(scheduledAt);
+        if (scheduledDate.getTime() <= Date.now()) {
+            showToast(t('scheduleMustBeFuture'), 'error');
+            return;
+        }
+        if (onSchedule) {
+            onSchedule(newRecord, editingRecord, scheduledDate.toISOString());
+            setShowSchedulePicker(false);
+            setScheduledAt('');
+        }
+    };
+
+    // Compute a default datetime-local value (1 hour from now)
+    const getMinDatetime = () => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        return now.toISOString().slice(0, 16);
     };
 
     if (!show) return null;
@@ -457,10 +482,46 @@ const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, t, showT
                             </div>
                         </div>
                     )}
-                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-                        <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>{t('cancel')}</button>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{t('save')}</button>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+                        <button type="button" className="btn btn-outline" style={{ flex: 1, minWidth: '80px' }} onClick={onClose}>{t('cancel')}</button>
+                        <button type="submit" className="btn btn-primary" style={{ flex: 1, minWidth: '80px' }}>{t('save')}</button>
+                        {onSchedule && (
+                            <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ flex: 1, minWidth: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.8rem' }}
+                                onClick={() => setShowSchedulePicker(!showSchedulePicker)}
+                            >
+                                <Clock size={14} />
+                                {t('scheduleForLater')}
+                            </button>
+                        )}
                     </div>
+                    {showSchedulePicker && onSchedule && (
+                        <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'var(--hover-bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
+                                {t('scheduleDateTime')}
+                            </label>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <input
+                                    type="datetime-local"
+                                    value={scheduledAt}
+                                    onChange={e => setScheduledAt(e.target.value)}
+                                    min={getMinDatetime()}
+                                    style={{ flex: 1, fontSize: '0.8rem' }}
+                                />
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    style={{ padding: '6px 12px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                                    onClick={handleScheduleSubmit}
+                                    disabled={!scheduledAt}
+                                >
+                                    {t('scheduleConfirm')}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </form>
             </div>
         </div>
