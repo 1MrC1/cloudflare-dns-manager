@@ -143,15 +143,10 @@ const DnsHistoryTab = ({ zone, auth, onClose, onRollbackComplete, t, showToast, 
 
         return (
             <div
-                style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '1rem'
-                }}
+                className="modal-overlay"
                 onClick={(e) => { if (e.target === e.currentTarget) { setShowDiffModal(false); setDiffData(null); } }}
             >
-                <div className="glass-card fade-in" style={{
+                <div className="glass-card fade-in modal-content" style={{
                     width: '100%', maxWidth: '720px', maxHeight: '80vh',
                     overflow: 'hidden', display: 'flex', flexDirection: 'column',
                     padding: 0
@@ -189,7 +184,7 @@ const DnsHistoryTab = ({ zone, auth, onClose, onRollbackComplete, t, showToast, 
                                 }}>
                                     {added.length > 0 && (
                                         <span style={{
-                                            background: '#dcfce7', color: '#166534', padding: '3px 10px',
+                                            background: 'var(--diff-added-bg)', color: 'var(--diff-added-text)', padding: '3px 10px',
                                             borderRadius: '12px', fontWeight: 600
                                         }}>
                                             +{added.length} {t('diffAdded')}
@@ -197,7 +192,7 @@ const DnsHistoryTab = ({ zone, auth, onClose, onRollbackComplete, t, showToast, 
                                     )}
                                     {removed.length > 0 && (
                                         <span style={{
-                                            background: '#fee2e2', color: '#991b1b', padding: '3px 10px',
+                                            background: 'var(--diff-removed-bg)', color: 'var(--diff-removed-text)', padding: '3px 10px',
                                             borderRadius: '12px', fontWeight: 600
                                         }}>
                                             -{removed.length} {t('diffRemoved')}
@@ -205,7 +200,7 @@ const DnsHistoryTab = ({ zone, auth, onClose, onRollbackComplete, t, showToast, 
                                     )}
                                     {modified.length > 0 && (
                                         <span style={{
-                                            background: '#fef9c3', color: '#854d0e', padding: '3px 10px',
+                                            background: 'var(--diff-modified-bg)', color: 'var(--diff-modified-text)', padding: '3px 10px',
                                             borderRadius: '12px', fontWeight: 600
                                         }}>
                                             ~{modified.length} {t('diffModified')}
@@ -218,14 +213,14 @@ const DnsHistoryTab = ({ zone, auth, onClose, onRollbackComplete, t, showToast, 
                                     <div style={{ marginBottom: '1rem' }}>
                                         <h4 style={{
                                             fontSize: '0.8rem', fontWeight: 600, margin: '0 0 0.5rem 0',
-                                            display: 'flex', alignItems: 'center', gap: '6px', color: '#166534'
+                                            display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--diff-added-text)'
                                         }}>
                                             <Plus size={14} />
                                             {t('diffAddedSection')}
                                         </h4>
                                         {added.map((rec, i) => (
                                             <div key={`added-${i}`} style={{
-                                                background: '#f0fdf4', border: '1px solid #bbf7d0',
+                                                background: 'var(--diff-added-row-bg)', border: '1px solid var(--diff-added-border)',
                                                 borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.4rem',
                                                 fontSize: '0.75rem'
                                             }}>
@@ -247,14 +242,14 @@ const DnsHistoryTab = ({ zone, auth, onClose, onRollbackComplete, t, showToast, 
                                     <div style={{ marginBottom: '1rem' }}>
                                         <h4 style={{
                                             fontSize: '0.8rem', fontWeight: 600, margin: '0 0 0.5rem 0',
-                                            display: 'flex', alignItems: 'center', gap: '6px', color: '#991b1b'
+                                            display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--diff-removed-text)'
                                         }}>
                                             <Minus size={14} />
                                             {t('diffRemovedSection')}
                                         </h4>
                                         {removed.map((rec, i) => (
                                             <div key={`removed-${i}`} style={{
-                                                background: '#fef2f2', border: '1px solid #fecaca',
+                                                background: 'var(--diff-removed-row-bg)', border: '1px solid var(--diff-removed-border)',
                                                 borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.4rem',
                                                 fontSize: '0.75rem'
                                             }}>
@@ -276,14 +271,14 @@ const DnsHistoryTab = ({ zone, auth, onClose, onRollbackComplete, t, showToast, 
                                     <div style={{ marginBottom: '1rem' }}>
                                         <h4 style={{
                                             fontSize: '0.8rem', fontWeight: 600, margin: '0 0 0.5rem 0',
-                                            display: 'flex', alignItems: 'center', gap: '6px', color: '#854d0e'
+                                            display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--diff-modified-text)'
                                         }}>
                                             <ArrowLeftRight size={14} />
                                             {t('diffModifiedSection')}
                                         </h4>
                                         {modified.map((item, i) => (
                                             <div key={`mod-${i}`} style={{
-                                                background: '#fefce8', border: '1px solid #fde68a',
+                                                background: 'var(--diff-modified-row-bg)', border: '1px solid var(--diff-modified-border)',
                                                 borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.4rem',
                                                 fontSize: '0.75rem'
                                             }}>
@@ -293,16 +288,16 @@ const DnsHistoryTab = ({ zone, auth, onClose, onRollbackComplete, t, showToast, 
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '0.5rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                                        <span style={{ color: '#991b1b', fontWeight: 500, fontSize: '0.7rem' }}>{t('diffBefore')}:</span>
-                                                        <span style={{ color: '#991b1b', wordBreak: 'break-all' }}>{item.before.content}</span>
-                                                        {item.before.ttl !== item.after.ttl && <span style={{ color: '#991b1b', fontSize: '0.65rem' }}>TTL: {item.before.ttl === 1 ? 'Auto' : item.before.ttl}</span>}
-                                                        {item.before.proxied !== item.after.proxied && <span style={{ color: '#991b1b', fontSize: '0.65rem' }}>{item.before.proxied ? 'Proxied' : 'DNS only'}</span>}
+                                                        <span style={{ color: 'var(--diff-removed-text)', fontWeight: 500, fontSize: '0.7rem' }}>{t('diffBefore')}:</span>
+                                                        <span style={{ color: 'var(--diff-removed-text)', wordBreak: 'break-all' }}>{item.before.content}</span>
+                                                        {item.before.ttl !== item.after.ttl && <span style={{ color: 'var(--diff-removed-text)', fontSize: '0.65rem' }}>TTL: {item.before.ttl === 1 ? 'Auto' : item.before.ttl}</span>}
+                                                        {item.before.proxied !== item.after.proxied && <span style={{ color: 'var(--diff-removed-text)', fontSize: '0.65rem' }}>{item.before.proxied ? 'Proxied' : 'DNS only'}</span>}
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                                        <span style={{ color: '#166534', fontWeight: 500, fontSize: '0.7rem' }}>{t('diffAfter')}:</span>
-                                                        <span style={{ color: '#166534', wordBreak: 'break-all' }}>{item.after.content}</span>
-                                                        {item.before.ttl !== item.after.ttl && <span style={{ color: '#166534', fontSize: '0.65rem' }}>TTL: {item.after.ttl === 1 ? 'Auto' : item.after.ttl}</span>}
-                                                        {item.before.proxied !== item.after.proxied && <span style={{ color: '#166534', fontSize: '0.65rem' }}>{item.after.proxied ? 'Proxied' : 'DNS only'}</span>}
+                                                        <span style={{ color: 'var(--diff-added-text)', fontWeight: 500, fontSize: '0.7rem' }}>{t('diffAfter')}:</span>
+                                                        <span style={{ color: 'var(--diff-added-text)', wordBreak: 'break-all' }}>{item.after.content}</span>
+                                                        {item.before.ttl !== item.after.ttl && <span style={{ color: 'var(--diff-added-text)', fontSize: '0.65rem' }}>TTL: {item.after.ttl === 1 ? 'Auto' : item.after.ttl}</span>}
+                                                        {item.before.proxied !== item.after.proxied && <span style={{ color: 'var(--diff-added-text)', fontSize: '0.65rem' }}>{item.after.proxied ? 'Proxied' : 'DNS only'}</span>}
                                                     </div>
                                                 </div>
                                             </div>

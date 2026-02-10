@@ -74,7 +74,7 @@ class ErrorBoundary extends React.Component {
                     style={{
                         display: 'inline-flex',
                         padding: '0.75rem',
-                        background: 'rgba(229, 62, 62, 0.1)',
+                        background: 'var(--error-bg)',
                         borderRadius: '12px',
                         marginBottom: '1rem',
                     }}

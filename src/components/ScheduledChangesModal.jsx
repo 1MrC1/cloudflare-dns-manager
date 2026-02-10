@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Trash2, RefreshCw, X, AlertCircle } from 'lucide-react';
 import { ApiClient, ApiError } from '../utils/api.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import { useToast } from '../contexts/ToastContext.jsx';
+import { useTheme } from '../contexts/ThemeContext.jsx';
 
-const ScheduledChangesModal = ({ show, onClose, auth, t, showToast }) => {
+const ScheduledChangesModal = ({ show, onClose }) => {
+    const { auth } = useAuth();
+    const { showToast } = useToast();
+    const { t } = useTheme();
     const [changes, setChanges] = useState([]);
     const [loading, setLoading] = useState(false);
     const authRef = useRef(auth);

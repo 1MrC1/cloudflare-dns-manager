@@ -170,7 +170,7 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
 
     return (
         <>
-            <div className="glass-card" style={{ padding: '1.25rem', marginBottom: '1.5rem', background: '#f8fafc' }}>
+            <div className="glass-card" style={{ padding: '1.25rem', marginBottom: '1.5rem', background: 'var(--subtle-bg)' }}>
                 <div className="flex-stack">
                     <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
@@ -223,7 +223,7 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
                                     <span className={`badge ${h.ssl?.status === 'active' ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: '0.75rem' }}>
                                         {t(h.ssl?.status) || 'N/A'}
                                     </span>
-                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: 'var(--subtle-bg)', padding: '1px 4px', borderRadius: '4px', textTransform: 'uppercase' }}>
                                         {h.ssl?.method}
                                     </span>
                                 </div>
@@ -261,7 +261,7 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
                         {/* Row 1: Hostname & Origin */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                             <div style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'var(--text)', wordBreak: 'break-all', flex: 1 }}>{h.hostname}</div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '2px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--subtle-bg)', padding: '2px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
                                 <Server size={10} />
                                 <span>{h.custom_origin_server || h.custom_origin_snihost || h.custom_origin || t('defaultOrigin')}</span>
                             </div>
@@ -410,15 +410,15 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
                             {verifyingSaaS.ownership_verification && (
                                 <div>
                                     <h4 style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase' }}>{t('ownership')}</h4>
-                                    <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div style={{ background: 'var(--subtle-bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                         <div>
                                             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('verifyType')}</p>
-                                            <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px' }}>{verifyingSaaS.ownership_verification.type}</code>
+                                            <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px' }}>{verifyingSaaS.ownership_verification.type}</code>
                                         </div>
                                         <div>
                                             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('verifyName')}</p>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{verifyingSaaS.ownership_verification.name}</code>
+                                                <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{verifyingSaaS.ownership_verification.name}</code>
                                                 <button className="btn btn-outline" style={{ padding: '6px' }} onClick={() => { navigator.clipboard.writeText(verifyingSaaS.ownership_verification.name); showToast(t('copied')); }}>
                                                     <Copy size={14} />
                                                 </button>
@@ -427,7 +427,7 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
                                         <div>
                                             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('verifyValue')}</p>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{verifyingSaaS.ownership_verification.value}</code>
+                                                <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{verifyingSaaS.ownership_verification.value}</code>
                                                 <button className="btn btn-outline" style={{ padding: '6px' }} onClick={() => { navigator.clipboard.writeText(verifyingSaaS.ownership_verification.value); showToast(t('copied')); }}>
                                                     <Copy size={14} />
                                                 </button>
@@ -442,15 +442,15 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
                                     <h4 style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase' }}>{t('sslValidation')}</h4>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {verifyingSaaS.ssl.validation_records?.map((rec, idx) => (
-                                            <div key={idx} style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            <div key={idx} style={{ background: 'var(--subtle-bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '2px 6px', borderRadius: '4px' }}>TXT</code>
+                                                    <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '2px 6px', borderRadius: '4px' }}>TXT</code>
                                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('verifyMethod')}</span>
                                                 </div>
                                                 <div>
                                                     <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('verifyName')}</p>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{rec.txt_name}</code>
+                                                        <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{rec.txt_name}</code>
                                                         <button className="btn btn-outline" style={{ padding: '6px' }} onClick={() => { navigator.clipboard.writeText(rec.txt_name); showToast(t('copied')); }}>
                                                             <Copy size={14} />
                                                         </button>
@@ -459,7 +459,7 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
                                                 <div>
                                                     <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('verifyValue')}</p>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{rec.txt_value}</code>
+                                                        <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{rec.txt_value}</code>
                                                         <button className="btn btn-outline" style={{ padding: '6px' }} onClick={() => { navigator.clipboard.writeText(rec.txt_value); showToast(t('copied')); }}>
                                                             <Copy size={14} />
                                                         </button>
@@ -468,15 +468,15 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
                                             </div>
                                         ))}
                                         {verifyingSaaS.ssl.cname && (
-                                            <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            <div style={{ background: 'var(--subtle-bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '2px 6px', borderRadius: '4px' }}>CNAME</code>
+                                                    <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '2px 6px', borderRadius: '4px' }}>CNAME</code>
                                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('verifyMethod')}</span>
                                                 </div>
                                                 <div>
                                                     <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('verifyName')}</p>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{verifyingSaaS.hostname}</code>
+                                                        <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{verifyingSaaS.hostname}</code>
                                                         <button className="btn btn-outline" style={{ padding: '6px' }} onClick={() => { navigator.clipboard.writeText(verifyingSaaS.hostname); showToast(t('copied')); }}>
                                                             <Copy size={14} />
                                                         </button>
@@ -485,7 +485,7 @@ const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostn
                                                 <div>
                                                     <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('verifyValue')}</p>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <code style={{ fontSize: '0.8125rem', background: '#fff', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{verifyingSaaS.ssl.cname_target}</code>
+                                                        <code style={{ fontSize: '0.8125rem', background: 'var(--code-bg)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all', flex: 1 }}>{verifyingSaaS.ssl.cname_target}</code>
                                                         <button className="btn btn-outline" style={{ padding: '6px' }} onClick={() => { navigator.clipboard.writeText(verifyingSaaS.ssl.cname_target); showToast(t('copied')); }}>
                                                             <Copy size={14} />
                                                         </button>

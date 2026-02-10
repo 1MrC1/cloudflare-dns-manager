@@ -3,13 +3,13 @@ import { Shield, Key, Fingerprint } from 'lucide-react';
 
 const SecurityBadges = ({ t }) => {
     const badges = [
-        { icon: <Shield size={10} />, label: t('badgeE2E'), bg: '#ecfdf5', border: '#a7f3d0', fg: '#059669' },
-        { icon: <Key size={10} />, label: t('badgeSHA256'), bg: '#f5f3ff', border: '#c4b5fd', fg: '#7c3aed' },
-        { icon: <Shield size={10} />, label: t('badgeZeroKnowledge'), bg: '#eff6ff', border: '#93c5fd', fg: '#2563eb' },
-        { icon: <Key size={10} />, label: t('badgeJWT'), bg: '#fffbeb', border: '#fcd34d', fg: '#d97706' },
-        { icon: <Shield size={10} />, label: t('badgeHTTPS'), bg: '#ecfdf5', border: '#a7f3d0', fg: '#059669' },
-        { icon: <Key size={10} />, label: t('badgeNoPlaintext'), bg: '#fef2f2', border: '#fecaca', fg: '#dc2626' },
-        { icon: <Fingerprint size={10} />, label: t('badgePasskey'), bg: '#fdf4ff', border: '#e9d5ff', fg: '#9333ea' },
+        { icon: <Shield size={10} />, label: t('badgeE2E'), bg: 'var(--badge-green-bg)', border: 'var(--badge-green-border)', fg: 'var(--badge-green-text)' },
+        { icon: <Key size={10} />, label: t('badgeSHA256'), bg: 'var(--badge-blue-bg)', border: 'var(--badge-blue-border)', fg: 'var(--badge-blue-text)' },
+        { icon: <Shield size={10} />, label: t('badgeZeroKnowledge'), bg: 'var(--badge-blue-bg)', border: 'var(--badge-blue-border)', fg: 'var(--badge-blue-text)' },
+        { icon: <Key size={10} />, label: t('badgeJWT'), bg: 'var(--badge-orange-bg)', border: 'var(--badge-orange-border)', fg: 'var(--badge-orange-text)' },
+        { icon: <Shield size={10} />, label: t('badgeHTTPS'), bg: 'var(--badge-green-bg)', border: 'var(--badge-green-border)', fg: 'var(--badge-green-text)' },
+        { icon: <Key size={10} />, label: t('badgeNoPlaintext'), bg: 'var(--badge-orange-bg)', border: 'var(--badge-orange-border)', fg: 'var(--badge-orange-text)' },
+        { icon: <Fingerprint size={10} />, label: t('badgePasskey'), bg: 'var(--badge-blue-bg)', border: 'var(--badge-blue-border)', fg: 'var(--badge-blue-text)' },
     ];
     return (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', justifyContent: 'center' }}>

@@ -345,10 +345,10 @@ const DnsImportModal = ({ zone, show, onClose, onImportComplete, auth, getHeader
                         padding: '0.75rem',
                         borderRadius: '6px',
                         marginBottom: '1rem',
-                        background: bulkImportResult.errors.length > 0 ? '#fff5f5' : '#f0fdf4',
-                        border: `1px solid ${bulkImportResult.errors.length > 0 ? '#fecaca' : '#bbf7d0'}`
+                        background: bulkImportResult.errors.length > 0 ? 'var(--error-bg)' : 'var(--success-bg)',
+                        border: `1px solid ${bulkImportResult.errors.length > 0 ? 'var(--diff-removed-border)' : 'var(--success-border)'}`
                     }}>
-                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: bulkImportResult.errors.length > 0 ? 'var(--error)' : '#16a34a', marginBottom: bulkImportResult.errors.length > 0 ? '0.5rem' : 0 }}>
+                        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: bulkImportResult.errors.length > 0 ? 'var(--error)' : 'var(--success-text)', marginBottom: bulkImportResult.errors.length > 0 ? '0.5rem' : 0 }}>
                             {t('importResultCreated').replace('{count}', bulkImportResult.created)}
                             {bulkImportResult.errors.length > 0 && (
                                 <span style={{ marginLeft: '8px' }}>

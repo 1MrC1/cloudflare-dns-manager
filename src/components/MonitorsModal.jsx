@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Activity, Trash2, RefreshCw, X, AlertCircle, Plus, CheckCircle, HelpCircle } from 'lucide-react';
 import { ApiClient, ApiError } from '../utils/api.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import { useToast } from '../contexts/ToastContext.jsx';
+import { useTheme } from '../contexts/ThemeContext.jsx';
 
 const RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'];
 
@@ -23,7 +26,10 @@ const StatusBadge = ({ status }) => {
     );
 };
 
-const MonitorsModal = ({ show, onClose, auth, t, showToast, zones }) => {
+const MonitorsModal = ({ show, onClose, zones }) => {
+    const { auth } = useAuth();
+    const { showToast } = useToast();
+    const { t } = useTheme();
     const [monitors, setMonitors] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
@@ -312,7 +318,7 @@ const MonitorsModal = ({ show, onClose, auth, t, showToast, zones }) => {
                                             <div style={{
                                                 fontSize: '0.65rem', color: 'var(--error)',
                                                 marginTop: '3px', padding: '3px 6px',
-                                                background: 'rgba(229, 62, 62, 0.08)', borderRadius: '4px'
+                                                background: 'var(--error-bg)', borderRadius: '4px'
                                             }}>
                                                 {monitor.lastError}
                                             </div>

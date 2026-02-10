@@ -293,7 +293,7 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                             onLangChange(cycle[(idx + 1) % cycle.length]);
                         }}
                         style={{ border: 'none', background: 'transparent', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', borderRadius: '8px', transition: 'background 0.2s', fontSize: '0.75rem', fontWeight: 600 }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--hover-btn-bg)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         title={{ zh: 'English', en: '日本語', ja: '한국어', ko: '中文' }[lang]}
                         aria-label={{ zh: 'Switch to English', en: '日本語に切り替え', ja: '한국어로 전환', ko: '切换到中文' }[lang]}
@@ -311,7 +311,7 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{t('subtitle')}</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', padding: '4px', background: '#f3f4f6', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', padding: '4px', background: 'var(--tab-bg)', borderRadius: '8px' }}>
                     <button
                         className={`btn ${loginTab === 'server' ? 'btn-primary' : 'btn-outline'}`}
                         style={{ flex: 1, padding: '0.4rem', border: 'none', fontSize: '0.8rem' }}

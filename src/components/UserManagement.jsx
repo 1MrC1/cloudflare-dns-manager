@@ -258,12 +258,12 @@ const UserManagement = ({ show, onClose, auth, t, showToast }) => {
                                     disabled={appSettingsLoading}
                                     style={{
                                         width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer',
-                                        background: appSettings.openRegistration ? 'var(--primary)' : '#d1d5db',
+                                        background: appSettings.openRegistration ? 'var(--primary)' : 'var(--toggle-off-bg)',
                                         position: 'relative', transition: 'background 0.2s', flexShrink: 0
                                     }}
                                 >
                                     <div style={{
-                                        width: '16px', height: '16px', borderRadius: '50%', background: '#fff',
+                                        width: '16px', height: '16px', borderRadius: '50%', background: 'var(--toggle-knob)',
                                         position: 'absolute', top: '3px',
                                         left: appSettings.openRegistration ? '21px' : '3px',
                                         transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
@@ -345,7 +345,7 @@ const UserManagement = ({ show, onClose, auth, t, showToast }) => {
 
                         {/* Setup token display (after reset) */}
                         {!showAddUser && createdSetupToken && (
-                            <div style={{ padding: '1rem', background: '#f0fdf4', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #bbf7d0' }}>
+                            <div style={{ padding: '1rem', background: 'var(--success-bg)', borderRadius: '8px', marginBottom: '1rem', border: '1px solid var(--success-border)' }}>
                                 <p style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--success)' }}>
                                     <CheckCircle size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
                                     {t('resetSetupToken')}

@@ -177,9 +177,9 @@ const TotpModal = ({ show, onClose, auth, t, showToast }) => {
                 ) : (
                     <div>
                         <div style={{
-                            padding: '0.75rem 1rem', background: enabled ? 'rgba(16, 185, 129, 0.1)' : 'var(--hover-bg)',
+                            padding: '0.75rem 1rem', background: enabled ? 'var(--success-bg)' : 'var(--hover-bg)',
                             borderRadius: '8px', marginBottom: '1rem',
-                            border: enabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border)',
+                            border: enabled ? '1px solid var(--success-border)' : '1px solid var(--border)',
                             display: 'flex', alignItems: 'center', gap: '0.75rem'
                         }}>
                             <Shield size={20} color={enabled ? 'var(--success)' : 'var(--text-muted)'} />

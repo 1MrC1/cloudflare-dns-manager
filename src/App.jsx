@@ -4,6 +4,9 @@ import useTranslate from './hooks/useTranslate.ts';
 import { getAuthHeaders } from './utils/auth.ts';
 import SecurityBadges from './components/SecurityBadges.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { AuthProvider } from './contexts/AuthContext.jsx';
+import { ToastProvider } from './contexts/ToastContext.jsx';
+import { ThemeProvider } from './contexts/ThemeContext.jsx';
 
 const Login = React.lazy(() => import('./components/Login.jsx'));
 const ZoneDetail = React.lazy(() => import('./components/ZoneDetail.jsx'));
@@ -803,6 +806,9 @@ const App = () => {
     }
 
     return (
+        <AuthProvider auth={auth} setAuth={setAuth}>
+        <ToastProvider showToast={showToast}>
+        <ThemeProvider t={t} lang={lang} changeLang={changeLang} toggleLang={toggleLang} darkMode={darkMode} setDarkMode={setDarkMode}>
         <Suspense fallback={<div className="lazy-loading" />}>
         <div className="fade-in">
             {isOffline && (
@@ -832,7 +838,7 @@ const App = () => {
                 <div className="toast-stack">
                     {toasts.map((toastItem) => (
                         <div key={toastItem.id} className={`toast-item ${toastItem.exiting ? 'toast-exit' : 'toast-enter'}`} style={{
-                            color: toastItem.type === 'success' ? 'var(--text)' : '#c53030',
+                            color: toastItem.type === 'success' ? 'var(--text)' : 'var(--error)',
                         }}>
                             {toastItem.type === 'success' ? <CheckCircle size={18} color="var(--success)" /> : <AlertCircle size={18} color="var(--error)" />}
                             <span style={{ fontSize: '0.875rem', fontWeight: '600', whiteSpace: 'nowrap', flex: 1 }}>{toastItem.message}</span>
@@ -927,7 +933,7 @@ const App = () => {
                         onClick={toggleLang}
                         style={{ border: 'none', background: 'transparent', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s', fontSize: '0.75rem', fontWeight: 600 }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(0,0,0,0.05)';
+                            e.currentTarget.style.background = 'var(--hover-btn-bg)';
                             e.currentTarget.style.color = 'var(--primary)';
                         }}
                         onMouseLeave={(e) => {
@@ -945,7 +951,7 @@ const App = () => {
                         onClick={() => setDarkMode(!darkMode)}
                         style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(0,0,0,0.05)';
+                            e.currentTarget.style.background = 'var(--hover-btn-bg)';
                             e.currentTarget.style.color = 'var(--primary)';
                         }}
                         onMouseLeave={(e) => {
@@ -962,7 +968,7 @@ const App = () => {
                         onClick={() => setShowShortcutsHelp(true)}
                         style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(0,0,0,0.05)';
+                            e.currentTarget.style.background = 'var(--hover-btn-bg)';
                             e.currentTarget.style.color = 'var(--primary)';
                         }}
                         onMouseLeave={(e) => {
@@ -1088,7 +1094,7 @@ const App = () => {
                         <button
                             onClick={() => setShowMonitorsModal(true)}
                             style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s', position: 'relative' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover-btn-bg)'; e.currentTarget.style.color = 'var(--primary)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                             title={t('monitors')}
                             aria-label={t('monitors')}
@@ -1113,7 +1119,7 @@ const App = () => {
                         <button
                             onClick={() => setShowBulkModal(true)}
                             style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover-btn-bg)'; e.currentTarget.style.color = 'var(--primary)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                             title={t('bulkOperations')}
                             aria-label={t('bulkOperations')}
@@ -1128,7 +1134,7 @@ const App = () => {
                         <button
                             onClick={() => setShowUserManagement(true)}
                             style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--hover-btn-bg)'; e.currentTarget.style.color = 'var(--primary)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                             title={t('usersManagement')}
                             aria-label={t('usersManagement')}
@@ -1180,7 +1186,7 @@ const App = () => {
                         <button
                             onClick={() => setShowAccountSelector(!showAccountSelector)}
                             style={{ border: 'none', background: 'transparent', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', borderRadius: '8px', transition: 'background 0.2s', fontSize: '0.8rem' }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--hover-btn-bg)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             title={t('switchAccount')}
                             aria-label={t('switchAccount')}
@@ -1299,7 +1305,7 @@ const App = () => {
                                     role="menuitem"
                                     onClick={doLogout}
                                     style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', width: '100%' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--error-bg)'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
                                     <LogOut size={14} />
@@ -1320,7 +1326,7 @@ const App = () => {
                 <PasskeyModal show={showPasskeyModal} onClose={() => setShowPasskeyModal(false)} auth={auth} t={t} showToast={showToast} />
                 <TotpModal show={showTotpModal} onClose={() => setShowTotpModal(false)} auth={auth} t={t} showToast={showToast} />
                 <BulkOperationsModal show={showBulkModal} onClose={() => setShowBulkModal(false)} auth={auth} t={t} showToast={showToast} zones={zones} />
-                <MonitorsModal show={showMonitorsModal} onClose={() => setShowMonitorsModal(false)} auth={auth} t={t} showToast={showToast} zones={zones} />
+                <MonitorsModal show={showMonitorsModal} onClose={() => setShowMonitorsModal(false)} zones={zones} />
                 <UserManagement show={showUserManagement} onClose={() => setShowUserManagement(false)} auth={auth} t={t} showToast={showToast} />
             </ErrorBoundary>
 
@@ -1328,7 +1334,7 @@ const App = () => {
                 {!loading && zones.length > 0 && (
                     <div className="container" style={{ paddingBottom: 0 }}>
                         <ErrorBoundary t={t}>
-                            <Dashboard zones={zones} auth={auth} t={t} />
+                            <Dashboard zones={zones} />
                         </ErrorBoundary>
                     </div>
                 )}
@@ -1490,7 +1496,7 @@ const App = () => {
                             </div>
                         ) : (
                             <div className="glass-card fade-in" style={{ maxWidth: '480px', margin: '0 auto', padding: '2rem', textAlign: 'center' }}>
-                                <div style={{ display: 'inline-flex', padding: '0.75rem', background: 'rgba(229, 62, 62, 0.1)', borderRadius: '12px', marginBottom: '1rem' }}>
+                                <div style={{ display: 'inline-flex', padding: '0.75rem', background: 'var(--error-bg)', borderRadius: '12px', marginBottom: '1rem' }}>
                                     <AlertCircle size={32} color="var(--error)" />
                                 </div>
                                 <h3 style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>{t('noZonesFound')}</h3>
@@ -1571,6 +1577,9 @@ const App = () => {
             <OnboardingTour t={t} />
         </div >
         </Suspense>
+        </ThemeProvider>
+        </ToastProvider>
+        </AuthProvider>
     );
 };
 

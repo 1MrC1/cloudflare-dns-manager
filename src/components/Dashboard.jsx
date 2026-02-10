@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Globe, Layers, User, Clock, Activity } from 'lucide-react';
 import { ApiClient, ApiError } from '../utils/api.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import { useTheme } from '../contexts/ThemeContext.jsx';
 
-const Dashboard = ({ zones, auth, t }) => {
+const Dashboard = ({ zones }) => {
+    const { auth } = useAuth();
+    const { t } = useTheme();
     const [auditLog, setAuditLog] = useState([]);
     const [auditLoading, setAuditLoading] = useState(false);
     const authRef = useRef(auth);

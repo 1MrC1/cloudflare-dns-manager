@@ -11,7 +11,7 @@ const ConfirmModal = ({ confirmModal, setConfirmModal, t }) => {
             onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal({ ...confirmModal, show: false }); }}
         >
             <div className="glass-card fade-in modal-content" role="dialog" aria-label={confirmModal.title} style={{ padding: '2rem', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
-                <div style={{ width: '48px', height: '48px', background: '#fff5f5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                <div style={{ width: '48px', height: '48px', background: 'var(--error-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
                     <AlertCircle size={24} color="var(--error)" />
                 </div>
                 <h2 style={{ marginBottom: '0.75rem' }}>{confirmModal.title}</h2>

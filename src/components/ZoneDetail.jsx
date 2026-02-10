@@ -341,7 +341,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
         <div className="container">
             <div style={{ marginBottom: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }} ref={zoneSelectorRef}>
-                    <div style={{ padding: '0.25rem', background: '#fff7ed', borderRadius: '8px' }}>
+                    <div style={{ padding: '0.25rem', background: 'var(--select-active-bg)', borderRadius: '8px' }}>
                         <Globe size={24} color="var(--primary)" />
                     </div>
 
@@ -456,7 +456,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                                             padding: '0.5rem 0.75rem',
                                             cursor: 'pointer',
                                             borderRadius: '6px',
-                                            background: isActive ? '#fff7ed' : 'transparent',
+                                            background: isActive ? 'var(--select-active-bg)' : 'transparent',
                                             color: isActive ? 'var(--primary)' : 'var(--text)',
                                             display: 'flex',
                                             alignItems: 'center',
@@ -465,7 +465,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                                             marginBottom: '2px',
                                             transition: 'all 0.1s'
                                         }}
-                                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f9fafb'; }}
+                                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--hover-bg)'; }}
                                         onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -485,7 +485,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                                     className="unstyled"
                                     onClick={() => { setShowZoneSelector(false); onAddAccount(); }}
                                     style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', width: '100%' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = '#fff7ed'}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--select-active-bg)'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
                                     <Plus size={14} />
@@ -497,7 +497,7 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                                     className="unstyled"
                                     onClick={() => { setShowZoneSelector(false); onAddSession(); }}
                                     style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', width: '100%' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
                                     <User size={14} />
@@ -706,9 +706,6 @@ const ZoneDetail = forwardRef(({ zone, zones, onSwitchZone, onRefreshZones, zone
                     <ScheduledChangesModal
                         show={showScheduledModal}
                         onClose={() => { setShowScheduledModal(false); fetchScheduledCount(); }}
-                        auth={auth}
-                        t={t}
-                        showToast={showToast}
                     />
                 </React.Suspense>
             )}
