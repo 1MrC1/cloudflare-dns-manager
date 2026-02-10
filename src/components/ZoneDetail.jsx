@@ -3,7 +3,7 @@ import { Globe, Server, User, Plus, Trash2, Edit2, RefreshCw, CheckCircle, Alert
 import { getAuthHeaders } from '../utils/auth.js';
 import CustomSelect from './CustomSelect.jsx';
 
-const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, auth, onBack, t, showToast, onAddAccount, onAddSession }) => {
+const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, auth, onBack, t, showToast, onAddAccount, onAddSession, onToggleZoneStorage, zoneStorageLoading }) => {
     const [tab, setTab] = useState('dns');
     const [records, setRecords] = useState([]);
     const [hostnames, setHostnames] = useState([]);
@@ -461,6 +461,27 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
                         <h1 style={{ cursor: 'pointer', fontSize: '1.5rem', margin: 0, lineHeight: 1 }}>{zone.name}</h1>
                         <ChevronDown size={24} color="var(--text-muted)" style={{ transform: showZoneSelector ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
                     </div>
+
+                    {onToggleZoneStorage && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onToggleZoneStorage(zone); }}
+                            disabled={zoneStorageLoading}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '0.25rem',
+                                fontSize: '0.65rem', fontWeight: 600,
+                                padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+                                border: '1px solid',
+                                borderColor: zone._localKey ? 'var(--primary)' : 'var(--border)',
+                                background: zone._localKey ? 'var(--select-active-bg)' : 'transparent',
+                                color: zone._localKey ? 'var(--primary)' : 'var(--text-muted)',
+                                transition: 'all 0.2s',
+                            }}
+                            title={zone._localKey ? t('uploadToServer') : t('switchToLocal')}
+                        >
+                            {zoneStorageLoading ? <RefreshCw className="spin" size={11} /> : zone._localKey ? <Upload size={11} /> : <Server size={11} />}
+                            {zone._localKey ? t('localBadge') : t('storageServer')}
+                        </button>
+                    )}
 
                     {onAddAccount && (
                         <button

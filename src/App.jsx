@@ -26,6 +26,7 @@ const App = () => {
     const [addAccountLoading, setAddAccountLoading] = useState(false);
     const [addAccountError, setAddAccountError] = useState('');
     const [storageToggleLoading, setStorageToggleLoading] = useState(false);
+    const [zoneStorageLoading, setZoneStorageLoading] = useState(false);
     const [isLocalMode, setIsLocalMode] = useState(false);
     const [showUserManagement, setShowUserManagement] = useState(false);
     const [userList, setUserList] = useState([]);
@@ -631,6 +632,52 @@ const App = () => {
             showToast(t('tokenSaveFailed'), 'error');
         }
         setStorageToggleLoading(false);
+    };
+
+    const handleToggleZoneStorage = async (zoneObj) => {
+        if (auth.mode !== 'server') return;
+        setZoneStorageLoading(true);
+        try {
+            if (zoneObj._localKey) {
+                // Local → Server: upload this token to server
+                const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
+                const token = localTokens[zoneObj._localKey];
+                if (token) {
+                    const maxId = (auth.accounts || []).reduce((max, a) => Math.max(max, a.id), -1);
+                    const nextIndex = maxId + 1;
+                    const adminHeaders = { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' };
+                    const res = await fetch('/api/admin/settings', {
+                        method: 'POST', headers: adminHeaders,
+                        body: JSON.stringify({ token, accountIndex: nextIndex })
+                    });
+                    if (res.ok) {
+                        delete localTokens[zoneObj._localKey];
+                        localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
+                        showToast(t('uploadedToServer'), 'success');
+                    }
+                }
+            } else {
+                // Server → Local: retrieve token from server, save locally, delete from server
+                const idx = zoneObj._accountIdx || 0;
+                const adminHeaders = { 'Authorization': `Bearer ${auth.token}` };
+                const res = await fetch(`/api/admin/settings?retrieve=${idx}`, { headers: adminHeaders });
+                const data = await res.json();
+                if (res.ok && data.token) {
+                    const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
+                    let localIdx = 0;
+                    while (localTokens[`local_${localIdx}`]) localIdx++;
+                    localTokens[`local_${localIdx}`] = data.token;
+                    localStorage.setItem('local_cf_tokens', JSON.stringify(localTokens));
+                    await fetch(`/api/admin/settings?index=${idx}`, { method: 'DELETE', headers: adminHeaders });
+                    showToast(t('switchedToLocal'), 'success');
+                }
+            }
+            setSelectedZone(null);
+            fetchZones(auth);
+        } catch (_e) {
+            showToast(t('tokenSaveFailed'), 'error');
+        }
+        setZoneStorageLoading(false);
     };
 
     const fetchUsers = async () => {
@@ -1839,6 +1886,8 @@ const App = () => {
                             showToast={showToast}
                             onAddAccount={null}
                             onAddSession={() => setShowAddSession(true)}
+                            onToggleZoneStorage={handleToggleZoneStorage}
+                            zoneStorageLoading={zoneStorageLoading}
                         />
                     ) : (
                         <div className="container" style={{ marginTop: '2rem', maxWidth: '520px', marginLeft: 'auto', marginRight: 'auto' }}>
@@ -1964,6 +2013,8 @@ const App = () => {
                         showToast={showToast}
                         onAddAccount={auth.mode === 'server' ? () => setShowAddAccount(true) : null}
                         onAddSession={() => setShowAddSession(true)}
+                        onToggleZoneStorage={auth.mode === 'server' ? handleToggleZoneStorage : null}
+                        zoneStorageLoading={zoneStorageLoading}
                     />
                 ) : (
                     /* === SERVER/CLIENT MODE NO ZONES === */
