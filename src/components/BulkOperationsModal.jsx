@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Layers, Globe, CheckCircle, AlertCircle, RefreshCw, X } from 'lucide-react';
-import { getAuthHeaders } from '../utils/auth.js';
+import { getAuthHeaders } from '../utils/auth.ts';
 
 const BulkOperationsModal = ({ show, onClose, auth, t, showToast, zones }) => {
     const [operation, setOperation] = useState('create');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, Server, User, Shield, Key, RefreshCw, Fingerprint, Languages, Zap } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
-import { hashPassword, isPasswordStrong } from '../utils/auth.js';
+import { hashPassword, isPasswordStrong } from '../utils/auth.ts';
 import SecurityBadges from './SecurityBadges.jsx';
 
 const Login = ({ onLogin, t, lang, onLangChange }) => {

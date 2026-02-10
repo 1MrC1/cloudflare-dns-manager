@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Server, User, Shield, Key, LogOut, Plus, Trash2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe, Layers } from 'lucide-react';
-import useTranslate from './hooks/useTranslate.js';
-import { getAuthHeaders } from './utils/auth.js';
+import useTranslate from './hooks/useTranslate.ts';
+import { getAuthHeaders } from './utils/auth.ts';
 import Login from './components/Login.jsx';
 import ZoneDetail from './components/ZoneDetail.jsx';
 import SecurityBadges from './components/SecurityBadges.jsx';

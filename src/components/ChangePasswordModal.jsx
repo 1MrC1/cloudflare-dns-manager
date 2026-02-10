@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Key, RefreshCw, Save, X } from 'lucide-react';
-import { hashPassword } from '../utils/auth.js';
+import { hashPassword } from '../utils/auth.ts';
 
 const ChangePasswordModal = ({ show, onClose, auth, t, showToast }) => {
     const [current, setCurrent] = useState('');

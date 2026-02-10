@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Globe, Server, User, Plus, Trash2, Edit2, RefreshCw, CheckCircle, AlertCircle, X, Search, ChevronDown, Upload, Download, Copy } from 'lucide-react';
-import { getAuthHeaders } from '../utils/auth.js';
+import { getAuthHeaders } from '../utils/auth.ts';
 import CustomSelect from './CustomSelect.jsx';
 
 const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, auth, onBack, t, showToast, onAddAccount, onAddSession, onToggleZoneStorage, zoneStorageLoading }) => {

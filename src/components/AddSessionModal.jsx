@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Key, RefreshCw, LogOut, X } from 'lucide-react';
-import { hashPassword } from '../utils/auth.js';
+import { hashPassword } from '../utils/auth.ts';
 
 const AddSessionModal = ({ show, onClose, auth, t, showToast, onSessionAdded }) => {
     const [username, setUsername] = useState('');
