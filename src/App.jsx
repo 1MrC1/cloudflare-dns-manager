@@ -1091,7 +1091,7 @@ const App = () => {
                                         <div
                                             key={idx}
                                             onClick={() => {
-                                                const matchedZone = zones.find(z => z.name === result.zone_name || z.id === result.zone_id);
+                                                const matchedZone = zones.find(z => z.name === result.zoneName || z.id === result.zoneId);
                                                 if (matchedZone) selectZone(matchedZone, auth);
                                                 setSearchResults(null);
                                                 setSearchQuery('');
@@ -1104,7 +1104,7 @@ const App = () => {
                                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text)' }}>{result.zone_name}</span>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text)' }}>{result.zoneName}</span>
                                                 <span className="badge badge-blue" style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
                                                     {result.type}
                                                 </span>
