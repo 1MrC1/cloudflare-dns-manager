@@ -1,5 +1,6 @@
 // User management API (admin only, enforced by middleware)
 import { logAudit } from '../_audit.js';
+import { fireWebhook } from '../_webhook.js';
 
 function generateSetupToken() {
     const arr = new Uint8Array(24);
@@ -111,6 +112,11 @@ export async function onRequestPost(context) {
 
     const adminUser = context.data.user?.username || 'admin';
     await logAudit(kv, adminUser, 'user.create', `Created user: ${cleanUsername} (role: ${userData.role})`);
+    await fireWebhook(kv, {
+        type: 'user.create',
+        username: adminUser,
+        detail: `Created user: ${cleanUsername} (role: ${userData.role})`
+    });
 
     return new Response(JSON.stringify({ success: true, username: cleanUsername, setupToken }), {
         headers: { 'Content-Type': 'application/json' }
@@ -206,6 +212,11 @@ export async function onRequestDelete(context) {
 
     const adminUser = context.data.user?.username || 'admin';
     await logAudit(kv, adminUser, 'user.delete', `Deleted user: ${username}`);
+    await fireWebhook(kv, {
+        type: 'user.delete',
+        username: adminUser,
+        detail: `Deleted user: ${username}`
+    });
 
     return new Response(JSON.stringify({ success: true }), {
         headers: { 'Content-Type': 'application/json' }

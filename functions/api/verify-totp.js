@@ -1,7 +1,10 @@
+// Public endpoint: verify TOTP code after login when 2FA is required.
+// Re-authenticates password + TOTP, then issues JWT + refresh token.
+
 import { SignJWT } from 'jose';
 import { hashPassword, verifyPassword, isLegacyHash } from './_crypto.js';
+import { verifyTOTP } from './_totp.js';
 import { logAudit } from './_audit.js';
-import { fireWebhook } from './_webhook.js';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_SEC = 900; // 15 minutes
@@ -21,7 +24,6 @@ async function checkLockout(kv, username) {
         if (elapsed < LOCKOUT_SEC) {
             return Math.ceil(LOCKOUT_SEC - elapsed);
         }
-        // Lockout expired, reset
         await kv.delete(`LOGIN_ATTEMPTS:${username}`);
         return null;
     }
@@ -43,54 +45,12 @@ async function resetAttempts(kv, username) {
     await kv.delete(`LOGIN_ATTEMPTS:${username}`);
 }
 
-// Lazy migrate old CF_API_TOKEN* keys into USER_TOKENS:admin
-async function migrateAdminTokens(env) {
-    const kv = env.CF_DNS_KV;
-    if (!kv) return [];
-
-    const existing = await kv.get('USER_TOKENS:admin');
-    if (existing) return JSON.parse(existing);
-
-    const tokens = [];
-    if (env.CF_API_TOKEN) {
-        tokens.push({ id: 0, name: 'Default Account', token: env.CF_API_TOKEN });
-    }
-    let i = 1;
-    while (env[`CF_API_TOKEN${i}`]) {
-        tokens.push({ id: i, name: `Account ${i}`, token: env[`CF_API_TOKEN${i}`] });
-        i++;
-    }
-
-    const seen = new Set(tokens.map(t => t.id));
-    const kvToken = await kv.get('CF_API_TOKEN');
-    if (kvToken && !seen.has(0)) {
-        const name = await kv.get('CF_API_TOKEN_NAME') || 'Default Account';
-        tokens.push({ id: 0, name, token: kvToken });
-    }
-    let k = 1;
-    while (true) {
-        const t = await kv.get(`CF_API_TOKEN${k}`);
-        if (!t) break;
-        if (!seen.has(k)) {
-            const name = await kv.get(`CF_API_TOKEN_NAME${k}`) || `Account ${k}`;
-            tokens.push({ id: k, name, token: t });
-        }
-        k++;
-    }
-
-    if (tokens.length > 0) {
-        await kv.put('USER_TOKENS:admin', JSON.stringify(tokens));
-    }
-    return tokens;
-}
-
 export async function onRequestPost(context) {
     const { request, env } = context;
     const body = await request.json();
-    const { username, password } = body;
+    const { username, password, code } = body;
 
     const serverPassword = env.APP_PASSWORD;
-
     if (!serverPassword) {
         return new Response(JSON.stringify({ error: 'Server is not configured for password login.' }), {
             status: 400,
@@ -100,6 +60,13 @@ export async function onRequestPost(context) {
 
     const loginUsername = username || 'admin';
     const kv = env.CF_DNS_KV;
+
+    if (!code) {
+        return new Response(JSON.stringify({ error: 'TOTP code is required.' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 
     // Check account lockout
     const lockoutRemaining = await checkLockout(kv, loginUsername);
@@ -113,9 +80,11 @@ export async function onRequestPost(context) {
         });
     }
 
+    // ── Re-authenticate password ────────────────────────────────────────────
+
     let authenticated = false;
     let role = 'user';
-    let hasTOTP = false;
+    let totpSecret = null;
 
     if (loginUsername === 'admin') {
         const serverPasswordHash = await sha256(serverPassword);
@@ -123,10 +92,9 @@ export async function onRequestPost(context) {
             authenticated = true;
             role = 'admin';
         }
-        // Check if admin has TOTP enabled (stored in dedicated key)
+        // Admin TOTP secret is stored in a dedicated key
         if (kv) {
-            const adminTotp = await kv.get('TOTP_SECRET:admin');
-            if (adminTotp) hasTOTP = true;
+            totpSecret = await kv.get('TOTP_SECRET:admin');
         }
     } else {
         if (kv) {
@@ -134,7 +102,7 @@ export async function onRequestPost(context) {
             if (userData) {
                 const user = JSON.parse(userData);
                 if (user.status === 'pending') {
-                    return new Response(JSON.stringify({ error: 'Account not set up yet. Please use your setup token to set a password first.', needsSetup: true }), {
+                    return new Response(JSON.stringify({ error: 'Account not set up yet.' }), {
                         status: 403,
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -155,39 +123,51 @@ export async function onRequestPost(context) {
                     }
                 }
 
-                if (user.totpSecret) hasTOTP = true;
+                totpSecret = user.totpSecret || null;
             }
         }
     }
 
     if (!authenticated) {
         await recordFailedAttempt(kv, loginUsername);
-        return new Response(JSON.stringify({ error: 'Invalid username or password' }), {
+        return new Response(JSON.stringify({ error: 'Invalid username or password.' }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' }
         });
     }
 
-    // Reset failed attempts on success
-    await resetAttempts(kv, loginUsername);
+    // ── Verify TOTP ─────────────────────────────────────────────────────────
 
-    // If user has TOTP enabled, require a second step — do not issue JWT yet
-    if (hasTOTP) {
-        return new Response(JSON.stringify({ requiresTOTP: true, username: loginUsername }), {
+    if (!totpSecret) {
+        // TOTP is not enabled — this endpoint should not have been called.
+        return new Response(JSON.stringify({ error: 'TOTP is not enabled for this account.' }), {
+            status: 400,
             headers: { 'Content-Type': 'application/json' }
         });
     }
 
-    // Generate JWT access token (15 min)
+    const totpValid = await verifyTOTP(totpSecret, String(code));
+    if (!totpValid) {
+        await recordFailedAttempt(kv, loginUsername);
+        return new Response(JSON.stringify({ error: 'Invalid TOTP code.' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    // ── Issue tokens (same logic as login.js success path) ──────────────────
+
+    await resetAttempts(kv, loginUsername);
+
     const secret = new TextEncoder().encode(serverPassword);
     const jti = crypto.randomUUID();
+
     const jwt = await new SignJWT({ sub: loginUsername, role })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('15m')
         .sign(secret);
 
-    // Generate refresh token (7 days)
     const refreshToken = await new SignJWT({ sub: loginUsername, role, type: 'refresh', jti })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
@@ -198,8 +178,27 @@ export async function onRequestPost(context) {
     let accounts = [];
 
     if (loginUsername === 'admin') {
-        const tokens = await migrateAdminTokens(env);
-        accounts = tokens.map(t => ({ id: t.id, name: t.name }));
+        // Inline the same migration/fallback logic from login.js
+        if (kv) {
+            const tokensJson = await kv.get('USER_TOKENS:admin');
+            if (tokensJson) {
+                const tokens = JSON.parse(tokensJson);
+                accounts = tokens.map(t => ({ id: t.id, name: t.name }));
+            }
+        }
+        if (accounts.length === 0) {
+            // Fallback: env-based tokens
+            const tokens = [];
+            if (env.CF_API_TOKEN) {
+                tokens.push({ id: 0, name: 'Default Account' });
+            }
+            let i = 1;
+            while (env[`CF_API_TOKEN${i}`]) {
+                tokens.push({ id: i, name: `Account ${i}` });
+                i++;
+            }
+            accounts = tokens;
+        }
     } else if (kv) {
         const tokensJson = await kv.get(`USER_TOKENS:${loginUsername}`);
         if (tokensJson) {
@@ -208,12 +207,7 @@ export async function onRequestPost(context) {
         }
     }
 
-    await logAudit(kv, loginUsername, 'auth.login', 'Logged in successfully');
-    await fireWebhook(kv, {
-        type: 'auth.login',
-        username: loginUsername,
-        detail: 'Logged in successfully'
-    });
+    await logAudit(kv, loginUsername, 'auth.login', 'Logged in successfully (with TOTP)');
 
     return new Response(JSON.stringify({ token: jwt, refreshToken, accounts, role, username: loginUsername }), {
         headers: { 'Content-Type': 'application/json' }

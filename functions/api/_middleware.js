@@ -17,7 +17,7 @@ export async function onRequest(context) {
     // Skip auth for public APIs
     if (url.pathname === '/api/login' || url.pathname === '/api/setup-account' || url.pathname === '/api/register' || url.pathname === '/api/public-settings'
         || url.pathname === '/api/passkey/login-options' || url.pathname === '/api/passkey/login-verify'
-        || url.pathname === '/api/refresh') {
+        || url.pathname === '/api/refresh' || url.pathname === '/api/verify-totp') {
         return next();
     }
 

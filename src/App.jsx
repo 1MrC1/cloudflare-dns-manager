@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Server, User, Shield, Key, LogOut, Plus, Trash2, Edit2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Copy, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe } from 'lucide-react';
+import { Server, User, Shield, Key, LogOut, Plus, Trash2, Edit2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Copy, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe, Layers } from 'lucide-react';
 import { startRegistration } from '@simplewebauthn/browser';
 import useTranslate from './hooks/useTranslate.js';
 import { getAuthHeaders, hashPassword } from './utils/auth.js';
@@ -70,6 +70,30 @@ const App = () => {
     const [searchResults, setSearchResults] = useState(null);
     const [searchLoading, setSearchLoading] = useState(false);
     const searchRef = useRef(null);
+
+    // TOTP 2FA
+    const [showTotpModal, setShowTotpModal] = useState(false);
+    const [totpSetupStep, setTotpSetupStep] = useState(null); // null | 'loading' | 'qr' | 'disabling'
+    const [totpSecret, setTotpSecret] = useState('');
+    const [totpUri, setTotpUri] = useState('');
+    const [totpCode, setTotpCode] = useState('');
+    const [totpError, setTotpError] = useState('');
+    const [totpLoading, setTotpLoading] = useState(false);
+    const [totpEnabled, setTotpEnabled] = useState(false);
+
+    // Bulk Operations
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [bulkOperation, setBulkOperation] = useState('create');
+    const [bulkZoneMode, setBulkZoneMode] = useState('all');
+    const [bulkSelectedZones, setBulkSelectedZones] = useState([]);
+    const [bulkRecordType, setBulkRecordType] = useState('TXT');
+    const [bulkRecordName, setBulkRecordName] = useState('');
+    const [bulkRecordContent, setBulkRecordContent] = useState('');
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkResults, setBulkResults] = useState(null);
+
+    // Webhook
+    const [webhookUrl, setWebhookUrl] = useState('');
 
     // Sync isLocalMode from global preference
     useEffect(() => {
@@ -664,7 +688,9 @@ const App = () => {
             const res = await fetch('/api/admin/app-settings', { headers: { 'Authorization': `Bearer ${auth.token}` } });
             if (res.ok) {
                 const data = await res.json();
-                setAppSettings(data.settings || { openRegistration: false });
+                const settings = data.settings || { openRegistration: false };
+                setAppSettings(settings);
+                if (settings.webhookUrl !== undefined) setWebhookUrl(settings.webhookUrl);
             }
         } catch (err) { }
     };
@@ -920,6 +946,144 @@ const App = () => {
         } catch (err) { }
     };
 
+    // TOTP 2FA handlers
+    const checkTotpStatus = async () => {
+        try {
+            const res = await fetch('/api/account/totp-setup', {
+                headers: { 'Authorization': `Bearer ${auth.token}` }
+            });
+            // If we get a pending secret back, TOTP is not enabled yet
+            // We need a different way to check - try to see if the user data has totpSecret
+            // Actually, GET returns a new pending secret. We check the user's login response or a dedicated check.
+            // For simplicity, we'll store totpEnabled based on whether disable works
+        } catch (_e) { }
+    };
+
+    const handleTotpSetup = async () => {
+        setTotpSetupStep('loading');
+        setTotpError('');
+        setTotpCode('');
+        try {
+            const res = await fetch('/api/account/totp-setup', {
+                headers: { 'Authorization': `Bearer ${auth.token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.secret) {
+                setTotpSecret(data.secret);
+                setTotpUri(data.uri);
+                setTotpSetupStep('qr');
+            } else {
+                setTotpError(data.error || 'Failed to generate TOTP secret');
+                setTotpSetupStep(null);
+            }
+        } catch (_e) {
+            setTotpError('Failed to start TOTP setup');
+            setTotpSetupStep(null);
+        }
+    };
+
+    const handleTotpVerify = async () => {
+        if (!totpCode || totpCode.length !== 6) return;
+        setTotpLoading(true);
+        setTotpError('');
+        try {
+            const res = await fetch('/api/account/totp-setup', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: totpCode })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setTotpEnabled(true);
+                setTotpSetupStep(null);
+                setTotpCode('');
+                showToast(t('totpVerified'), 'success');
+            } else {
+                setTotpError(data.error || t('totpInvalid'));
+            }
+        } catch (_e) {
+            setTotpError(t('errorOccurred'));
+        }
+        setTotpLoading(false);
+    };
+
+    const handleTotpDisable = async () => {
+        if (!totpCode || totpCode.length !== 6) return;
+        setTotpLoading(true);
+        setTotpError('');
+        try {
+            const res = await fetch('/api/account/totp-setup', {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: totpCode })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setTotpEnabled(false);
+                setTotpSetupStep(null);
+                setTotpCode('');
+                showToast(t('totpDisabled'), 'success');
+            } else {
+                setTotpError(data.error || t('totpInvalid'));
+            }
+        } catch (_e) {
+            setTotpError(t('errorOccurred'));
+        }
+        setTotpLoading(false);
+    };
+
+    // Bulk Operations handler
+    const handleBulkExecute = async () => {
+        if (bulkOperation === 'create' && (!bulkRecordType || !bulkRecordName || !bulkRecordContent)) return;
+        if (bulkOperation === 'delete_matching' && !bulkRecordType && !bulkRecordName && !bulkRecordContent) return;
+        setBulkLoading(true);
+        setBulkResults(null);
+        try {
+            const record = {};
+            if (bulkRecordType) record.type = bulkRecordType;
+            if (bulkRecordName) record.name = bulkRecordName;
+            if (bulkRecordContent) record.content = bulkRecordContent;
+
+            const body = {
+                operation: bulkOperation,
+                zones: bulkZoneMode === 'all' ? 'all' : bulkSelectedZones,
+                record
+            };
+
+            const res = await fetch('/api/dns_bulk', {
+                method: 'POST',
+                headers: getAuthHeaders(auth, true),
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setBulkResults(data.results || []);
+                showToast(t('bulkSuccess'), 'success');
+            } else {
+                showToast(data.error || 'Bulk operation failed', 'error');
+            }
+        } catch (_e) {
+            showToast('Bulk operation failed', 'error');
+        }
+        setBulkLoading(false);
+    };
+
+    // Webhook URL save handler
+    const handleSaveWebhook = async () => {
+        try {
+            const res = await fetch('/api/admin/app-settings', {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ webhookUrl })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAppSettings(data.settings);
+                showToast(t('webhookSaved'), 'success');
+            }
+        } catch (_e) { }
+    };
+
     const handleRemoveSession = (sessionIdx) => {
         const sessions = auth.sessions || [];
         if (sessions.length <= 1) {
@@ -1119,6 +1283,18 @@ const App = () => {
                         </div>
                     )}
 
+                    {auth.mode === 'server' && !isLocalMode && (
+                        <button
+                            onClick={() => { setShowBulkModal(true); setBulkResults(null); }}
+                            style={{ border: 'none', background: 'transparent', padding: '8px', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)', borderRadius: '8px', transition: 'all 0.2s' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                            title={t('bulkOperations')}
+                        >
+                            <Layers size={18} />
+                        </button>
+                    )}
+
                     {auth.role === 'admin' && (
                         <>
                         <div style={{ height: '16px', width: '1px', background: 'var(--border)' }}></div>
@@ -1265,6 +1441,18 @@ const App = () => {
                                     >
                                         <Fingerprint size={14} />
                                         {t('passkeyManage')}
+                                    </div>
+                                )}
+
+                                {auth.mode === 'server' && (
+                                    <div
+                                        onClick={() => { setShowAccountSelector(false); setShowTotpModal(true); setTotpError(''); setTotpSetupStep(null); setTotpCode(''); }}
+                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderRadius: '6px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text)' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <Shield size={14} />
+                                        {t('totpManage')}
                                     </div>
                                 )}
 
@@ -1515,6 +1703,273 @@ const App = () => {
                 </div>
             )}
 
+            {/* TOTP 2FA Modal */}
+            {showTotpModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--modal-overlay)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 200, padding: '1rem' }}
+                    onClick={(e) => { if (e.target === e.currentTarget) setShowTotpModal(false); }}>
+                    <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '420px', padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Shield size={18} color="#9333ea" /> {t('totpManage')}
+                            </h3>
+                            <button onClick={() => setShowTotpModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                                <X size={18} color="var(--text-muted)" />
+                            </button>
+                        </div>
+
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                            {t('totpSetupDesc')}
+                        </p>
+
+                        {totpSetupStep === 'qr' ? (
+                            <div className="fade-in">
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                                    {t('totpScanQR')}
+                                </p>
+                                <div style={{ padding: '0.75rem', background: 'var(--hover-bg)', borderRadius: '8px', marginBottom: '0.75rem', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>{t('totpSecretKey')}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                        <code style={{ fontSize: '0.8rem', fontWeight: 600, wordBreak: 'break-all', color: 'var(--text)' }}>{totpSecret}</code>
+                                        <button
+                                            onClick={() => { navigator.clipboard.writeText(totpSecret); showToast(t('copied'), 'success'); }}
+                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '2px', display: 'flex', color: 'var(--text-muted)', flexShrink: 0 }}
+                                        >
+                                            <Copy size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t('totpEnterCode')}</p>
+                                <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        maxLength={6}
+                                        placeholder={t('totpCodePlaceholder')}
+                                        value={totpCode}
+                                        onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' && totpCode.length === 6) handleTotpVerify(); }}
+                                        style={{ width: '100%', textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.3em' }}
+                                        autoFocus
+                                    />
+                                </div>
+                                {totpError && <p style={{ color: 'var(--error)', fontSize: '0.75rem', marginBottom: '0.75rem' }}>{totpError}</p>}
+                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <button className="btn btn-outline" onClick={() => { setTotpSetupStep(null); setTotpCode(''); setTotpError(''); }}>{t('cancel')}</button>
+                                    <button className="btn btn-primary" onClick={handleTotpVerify}
+                                        disabled={totpLoading || totpCode.length !== 6}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {totpLoading ? <RefreshCw className="spin" size={14} /> : <CheckCircle size={14} />}
+                                        {t('totpVerify')}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : totpSetupStep === 'disabling' ? (
+                            <div className="fade-in">
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                                    {t('totpDisableDesc')}
+                                </p>
+                                <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        maxLength={6}
+                                        placeholder={t('totpCodePlaceholder')}
+                                        value={totpCode}
+                                        onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' && totpCode.length === 6) handleTotpDisable(); }}
+                                        style={{ width: '100%', textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.3em' }}
+                                        autoFocus
+                                    />
+                                </div>
+                                {totpError && <p style={{ color: 'var(--error)', fontSize: '0.75rem', marginBottom: '0.75rem' }}>{totpError}</p>}
+                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <button className="btn btn-outline" onClick={() => { setTotpSetupStep(null); setTotpCode(''); setTotpError(''); }}>{t('cancel')}</button>
+                                    <button className="btn btn-primary" onClick={handleTotpDisable}
+                                        disabled={totpLoading || totpCode.length !== 6}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--error)', borderColor: 'var(--error)' }}>
+                                        {totpLoading ? <RefreshCw className="spin" size={14} /> : <X size={14} />}
+                                        {t('totpDisable')}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : totpSetupStep === 'loading' ? (
+                            <div style={{ textAlign: 'center', padding: '2rem' }}>
+                                <RefreshCw className="spin" size={20} color="var(--primary)" />
+                            </div>
+                        ) : (
+                            <div>
+                                <div style={{
+                                    padding: '0.75rem 1rem', background: totpEnabled ? 'rgba(16, 185, 129, 0.1)' : 'var(--hover-bg)',
+                                    borderRadius: '8px', marginBottom: '1rem',
+                                    border: totpEnabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border)',
+                                    display: 'flex', alignItems: 'center', gap: '0.75rem'
+                                }}>
+                                    <Shield size={20} color={totpEnabled ? 'var(--success)' : 'var(--text-muted)'} />
+                                    <div>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: totpEnabled ? 'var(--success)' : 'var(--text)' }}>
+                                            {totpEnabled ? t('totpEnabled') : t('totpNotEnabled')}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <button className="btn btn-outline" onClick={() => setShowTotpModal(false)}>{t('cancel')}</button>
+                                    {totpEnabled ? (
+                                        <button className="btn btn-outline" onClick={() => { setTotpSetupStep('disabling'); setTotpCode(''); setTotpError(''); }}
+                                            style={{ color: 'var(--error)', borderColor: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <X size={14} />
+                                            {t('totpDisable')}
+                                        </button>
+                                    ) : (
+                                        <button className="btn btn-primary" onClick={handleTotpSetup}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Shield size={14} />
+                                            {t('totpEnable')}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Operations Modal */}
+            {showBulkModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--modal-overlay)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 200, padding: '1rem' }}
+                    onClick={(e) => { if (e.target === e.currentTarget) { setShowBulkModal(false); setBulkResults(null); } }}>
+                    <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '560px', padding: '1.5rem', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Layers size={18} color="var(--primary)" /> {t('bulkOperations')}
+                            </h3>
+                            <button onClick={() => { setShowBulkModal(false); setBulkResults(null); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                                <X size={18} color="var(--text-muted)" />
+                            </button>
+                        </div>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{t('bulkDesc')}</p>
+
+                        {bulkResults ? (
+                            <div className="fade-in" style={{ overflowY: 'auto', flex: 1 }}>
+                                <h4 style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>{t('bulkResults')}</h4>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Zone</th>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>Status</th>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>Count</th>
+                                                <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Errors</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {bulkResults.map((r, i) => (
+                                                <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                    <td style={{ padding: '0.4rem 0.5rem', fontWeight: 500 }}>{r.zoneName}</td>
+                                                    <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
+                                                        {r.success ? <CheckCircle size={14} color="var(--success)" /> : <AlertCircle size={14} color="var(--error)" />}
+                                                    </td>
+                                                    <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>{r.count}</td>
+                                                    <td style={{ padding: '0.4rem 0.5rem', fontSize: '0.7rem', color: 'var(--error)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {r.errors?.join(', ')}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                    <button className="btn btn-outline" onClick={() => setBulkResults(null)}>{t('cancel')}</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ overflowY: 'auto', flex: 1 }}>
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                    <button className={`btn ${bulkOperation === 'create' ? 'btn-primary' : 'btn-outline'}`}
+                                        style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem' }}
+                                        onClick={() => setBulkOperation('create')}>
+                                        {t('bulkCreate')}
+                                    </button>
+                                    <button className={`btn ${bulkOperation === 'delete_matching' ? 'btn-primary' : 'btn-outline'}`}
+                                        style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem' }}
+                                        onClick={() => setBulkOperation('delete_matching')}>
+                                        {t('bulkDelete')}
+                                    </button>
+                                </div>
+
+                                <div style={{ marginBottom: '0.75rem' }}>
+                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>{t('bulkSelectZones')}</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                        <button className={`btn ${bulkZoneMode === 'all' ? 'btn-primary' : 'btn-outline'}`}
+                                            style={{ padding: '3px 10px', fontSize: '0.75rem' }}
+                                            onClick={() => setBulkZoneMode('all')}>
+                                            {t('bulkAllZones')}
+                                        </button>
+                                        <button className={`btn ${bulkZoneMode === 'selected' ? 'btn-primary' : 'btn-outline'}`}
+                                            style={{ padding: '3px 10px', fontSize: '0.75rem' }}
+                                            onClick={() => setBulkZoneMode('selected')}>
+                                            {t('bulkSelectedZones')}
+                                        </button>
+                                    </div>
+                                    {bulkZoneMode === 'selected' && (
+                                        <div style={{ maxHeight: '120px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem' }}>
+                                            {zones.map(z => (
+                                                <label key={z.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.3rem 0.5rem', cursor: 'pointer', fontSize: '0.8rem', borderRadius: '4px' }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                    <input type="checkbox" checked={bulkSelectedZones.includes(z.id)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setBulkSelectedZones([...bulkSelectedZones, z.id]);
+                                                            else setBulkSelectedZones(bulkSelectedZones.filter(id => id !== z.id));
+                                                        }}
+                                                        style={{ width: '14px', height: '14px' }} />
+                                                    <Globe size={12} color="var(--primary)" />
+                                                    {z.name}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>{t('bulkRecordType')}</label>
+                                        <select value={bulkRecordType} onChange={e => setBulkRecordType(e.target.value)}
+                                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                                            {['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'SRV', 'CAA'].map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                    </div>
+                                    <div style={{ flex: 2 }}>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>{t('bulkRecordName')}</label>
+                                        <input type="text" value={bulkRecordName} onChange={e => setBulkRecordName(e.target.value)}
+                                            placeholder={bulkOperation === 'create' ? '_dmarc' : `(${t('bulkRecordName')})`}
+                                            style={{ width: '100%', fontSize: '0.85rem' }} />
+                                    </div>
+                                </div>
+
+                                <div style={{ marginBottom: '0.75rem' }}>
+                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>{t('bulkRecordContent')}</label>
+                                    <input type="text" value={bulkRecordContent} onChange={e => setBulkRecordContent(e.target.value)}
+                                        placeholder={bulkOperation === 'create' ? 'v=DMARC1; p=reject' : `(${t('bulkRecordContent')})`}
+                                        style={{ width: '100%', fontSize: '0.85rem' }} />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <button className="btn btn-outline" onClick={() => { setShowBulkModal(false); setBulkResults(null); }}>{t('cancel')}</button>
+                                    <button className="btn btn-primary" onClick={handleBulkExecute}
+                                        disabled={bulkLoading || (bulkZoneMode === 'selected' && bulkSelectedZones.length === 0)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {bulkLoading ? <RefreshCw className="spin" size={14} /> : <Layers size={14} />}
+                                        {bulkLoading ? t('bulkExecuting') : t('bulkExecute')}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* User Management Modal */}
             {showUserManagement && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--modal-overlay)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 200, padding: '1rem' }}
@@ -1593,6 +2048,22 @@ const App = () => {
                                         left: appSettings.openRegistration ? '21px' : '3px',
                                         transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                                     }} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Webhook URL */}
+                        <div style={{ padding: '0.75rem 1rem', background: 'var(--hover-bg)', borderRadius: '8px', marginBottom: '1rem' }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>{t('webhookUrl')}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{t('webhookDesc')}</div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input type="text" value={webhookUrl}
+                                    onChange={e => setWebhookUrl(e.target.value)}
+                                    placeholder={t('webhookUrlPlaceholder')}
+                                    style={{ flex: 1, fontSize: '0.8rem' }} />
+                                <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    onClick={handleSaveWebhook}>
+                                    <Save size={12} /> {t('save')}
                                 </button>
                             </div>
                         </div>

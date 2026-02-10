@@ -2,7 +2,8 @@
 // Stored in KV as APP_SETTINGS JSON
 
 const DEFAULT_SETTINGS = {
-    openRegistration: false
+    openRegistration: false,
+    webhookUrl: ''
 };
 
 // GET: Retrieve app settings
@@ -45,6 +46,10 @@ export async function onRequestPut(context) {
     // Only allow known keys
     if (body.openRegistration !== undefined) {
         settings.openRegistration = !!body.openRegistration;
+    }
+
+    if (body.webhookUrl !== undefined) {
+        settings.webhookUrl = typeof body.webhookUrl === 'string' ? body.webhookUrl.trim() : '';
     }
 
     await kv.put('APP_SETTINGS', JSON.stringify(settings));

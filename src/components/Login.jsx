@@ -16,6 +16,12 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
     const [remember, setRemember] = useState(false);
     const [openRegistration, setOpenRegistration] = useState(false);
 
+    // TOTP 2FA state
+    const [totpStep, setTotpStep] = useState(false);
+    const [totpCode, setTotpCode] = useState('');
+    const [totpUsername, setTotpUsername] = useState('');
+    const [totpPassword, setTotpPassword] = useState('');
+
     // Setup account fields
     const [setupUsername, setSetupUsername] = useState('');
     const [setupToken, setSetupToken] = useState('');
@@ -117,9 +123,17 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                 });
                 const data = await res.json();
                 if (res.ok) {
+                    if (data.requiresTOTP) {
+                        setTotpStep(true);
+                        setTotpUsername(data.username);
+                        setTotpPassword(hashedPassword);
+                        setLoading(false);
+                        return;
+                    }
                     onLogin({
                         mode: 'server',
                         token: data.token,
+                        refreshToken: data.refreshToken,
                         remember,
                         accounts: data.accounts || [],
                         currentAccountIndex: data.accounts?.[0]?.id || 0,
@@ -243,6 +257,39 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
         }
     };
 
+    const handleTOTPVerify = async (e) => {
+        e.preventDefault();
+        if (!totpCode.trim()) return;
+        setLoading(true);
+        setError('');
+        try {
+            const res = await fetch('/api/verify-totp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: totpUsername, password: totpPassword, code: totpCode.trim() })
+            });
+            const data = await res.json();
+            if (res.ok && data.token) {
+                onLogin({
+                    mode: 'server',
+                    token: data.token,
+                    refreshToken: data.refreshToken,
+                    remember,
+                    accounts: data.accounts || [],
+                    currentAccountIndex: data.accounts?.[0]?.id || 0,
+                    role: data.role || 'user',
+                    username: data.username || totpUsername
+                });
+            } else {
+                setError(data.error || t('totpInvalid'));
+            }
+        } catch (err) {
+            setError(t('errorOccurred'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '1rem' }}>
             <div className="glass-card login-card fade-in">
@@ -273,14 +320,14 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                     <button
                         className={`btn ${loginTab === 'server' ? 'btn-primary' : 'btn-outline'}`}
                         style={{ flex: 1, padding: '0.4rem', border: 'none', fontSize: '0.8rem' }}
-                        onClick={() => { setLoginTab('server'); setError(''); setSuccessMsg(''); }}
+                        onClick={() => { setLoginTab('server'); setError(''); setSuccessMsg(''); setTotpStep(false); setTotpCode(''); }}
                     >
                         {t('serverMode')}
                     </button>
                     <button
                         className={`btn ${loginTab === 'client' ? 'btn-primary' : 'btn-outline'}`}
                         style={{ flex: 1, padding: '0.4rem', border: 'none', fontSize: '0.8rem' }}
-                        onClick={() => { setLoginTab('client'); setError(''); setSuccessMsg(''); }}
+                        onClick={() => { setLoginTab('client'); setError(''); setSuccessMsg(''); setTotpStep(false); setTotpCode(''); }}
                     >
                         {t('clientMode')}
                     </button>
@@ -288,7 +335,7 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                         <button
                             className={`btn ${loginTab === 'register' ? 'btn-primary' : 'btn-outline'}`}
                             style={{ flex: 1, padding: '0.4rem', border: 'none', fontSize: '0.8rem' }}
-                            onClick={() => { setLoginTab('register'); setError(''); setSuccessMsg(''); }}
+                            onClick={() => { setLoginTab('register'); setError(''); setSuccessMsg(''); setTotpStep(false); setTotpCode(''); }}
                         >
                             {t('register')}
                         </button>
@@ -296,14 +343,49 @@ const Login = ({ onLogin, t, lang, onLangChange }) => {
                         <button
                             className={`btn ${loginTab === 'setup' ? 'btn-primary' : 'btn-outline'}`}
                             style={{ flex: 1, padding: '0.4rem', border: 'none', fontSize: '0.8rem' }}
-                            onClick={() => { setLoginTab('setup'); setError(''); setSuccessMsg(''); }}
+                            onClick={() => { setLoginTab('setup'); setError(''); setSuccessMsg(''); setTotpStep(false); setTotpCode(''); }}
                         >
                             {t('setupAccount')}
                         </button>
                     )}
                 </div>
 
-                {loginTab === 'register' ? (
+                {totpStep ? (
+                    <form onSubmit={handleTOTPVerify}>
+                        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'inline-flex', padding: '0.75rem', background: 'rgba(147, 51, 234, 0.1)', borderRadius: '12px', marginBottom: '0.75rem' }}>
+                                <Shield size={28} color="#9333ea" />
+                            </div>
+                            <h3 style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>{t('totpStep')}</h3>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('totpRequired')}</p>
+                        </div>
+                        <div className="input-group">
+                            <div style={{ position: 'relative' }}>
+                                <Shield size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={6}
+                                    placeholder={t('totpCodePlaceholder')}
+                                    value={totpCode}
+                                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    style={{ paddingLeft: '38px', textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.3em' }}
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                        </div>
+                        {error && <p style={{ color: 'var(--error)', fontSize: '0.75rem', marginBottom: '1rem', textAlign: 'center' }}>{error}</p>}
+                        <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={loading || totpCode.length !== 6}>
+                            {loading ? <RefreshCw className="spin" size={18} /> : t('totpVerify')}
+                        </button>
+                        <button type="button" className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+                            onClick={() => { setTotpStep(false); setTotpCode(''); setError(''); }}>
+                            {t('cancel') || 'Back'}
+                        </button>
+                    </form>
+                ) : loginTab === 'register' ? (
                     <form onSubmit={handleRegister}>
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1rem', textAlign: 'center' }}>
                             {t('registerDesc')}
