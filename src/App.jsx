@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Server, User, Shield, Key, LogOut, Plus, Trash2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe, Layers } from 'lucide-react';
 import useTranslate from './hooks/useTranslate.ts';
 import { getAuthHeaders } from './utils/auth.ts';
-import Login from './components/Login.jsx';
-import ZoneDetail from './components/ZoneDetail.jsx';
 import SecurityBadges from './components/SecurityBadges.jsx';
-import AddAccountModal from './components/AddAccountModal.jsx';
-import AddSessionModal from './components/AddSessionModal.jsx';
-import ChangePasswordModal from './components/ChangePasswordModal.jsx';
-import PasskeyModal from './components/PasskeyModal.jsx';
-import TotpModal from './components/TotpModal.jsx';
-import BulkOperationsModal from './components/BulkOperationsModal.jsx';
-import UserManagement from './components/UserManagement.jsx';
+
+const Login = React.lazy(() => import('./components/Login.jsx'));
+const ZoneDetail = React.lazy(() => import('./components/ZoneDetail.jsx'));
+const AddAccountModal = React.lazy(() => import('./components/AddAccountModal.jsx'));
+const AddSessionModal = React.lazy(() => import('./components/AddSessionModal.jsx'));
+const ChangePasswordModal = React.lazy(() => import('./components/ChangePasswordModal.jsx'));
+const PasskeyModal = React.lazy(() => import('./components/PasskeyModal.jsx'));
+const TotpModal = React.lazy(() => import('./components/TotpModal.jsx'));
+const BulkOperationsModal = React.lazy(() => import('./components/BulkOperationsModal.jsx'));
+const UserManagement = React.lazy(() => import('./components/UserManagement.jsx'));
 
 const App = () => {
     const { t, lang, changeLang, toggleLang } = useTranslate();
@@ -698,10 +699,15 @@ const App = () => {
     };
 
     if (!auth) {
-        return <Login onLogin={handleLogin} t={t} lang={lang} onLangChange={changeLang} />;
+        return (
+            <Suspense fallback={<div className="lazy-loading" />}>
+                <Login onLogin={handleLogin} t={t} lang={lang} onLangChange={changeLang} />
+            </Suspense>
+        );
     }
 
     return (
+        <Suspense fallback={<div className="lazy-loading" />}>
         <div className="fade-in">
             {toast && (
                 <div key={toast.id} style={{
@@ -1325,6 +1331,7 @@ const App = () => {
                 </p>
             </footer>
         </div >
+        </Suspense>
     );
 };
 

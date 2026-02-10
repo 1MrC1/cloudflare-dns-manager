@@ -209,7 +209,14 @@ const DnsRecordsTab = ({
                                     className="record-checkbox"
                                 />
                             </td>
-                            <td><span className="badge badge-blue">{record.type}</span></td>
+                            <td>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
+                                    <span className="badge badge-blue">{record.type}</span>
+                                    {(record.tags || []).map((tag, idx) => (
+                                        <span key={idx} className="badge badge-green" style={{ fontSize: '0.6rem', padding: '1px 5px' }}>{tag}</span>
+                                    ))}
+                                </div>
+                            </td>
                             <td>
                                 <div style={{ fontWeight: 600 }}>{record.name}</div>
                                 {record.comment && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{record.comment}</div>}
@@ -247,8 +254,11 @@ const DnsRecordsTab = ({
             <div className="mobile-only">
                 {filteredRecords.map(record => (
                     <div key={record.id} className="record-card">
-                        <div className="record-type-row">
+                        <div className="record-type-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
                             <span className="dns-type-label">{record.type}</span>
+                            {(record.tags || []).map((tag, idx) => (
+                                <span key={idx} className="badge badge-green" style={{ fontSize: '0.6rem', padding: '1px 5px' }}>{tag}</span>
+                            ))}
                         </div>
                         <div className="record-header" role="button" tabIndex={0} onClick={() => toggleExpand(record.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(record.id); } }} aria-expanded={expandedRecords.has(record.id)}>
                             <div className="record-header-main">

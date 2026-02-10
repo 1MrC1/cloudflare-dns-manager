@@ -3,10 +3,11 @@ import { BookOpen, ChevronDown } from 'lucide-react';
 import CustomSelect from './CustomSelect.jsx';
 
 const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, t, showToast }) => {
-    const defaultRecord = { type: 'A', name: '', content: '', ttl: 1, proxied: true, comment: '', priority: 10, data: {} };
+    const defaultRecord = { type: 'A', name: '', content: '', ttl: 1, proxied: true, comment: '', tags: [], priority: 10, data: {} };
 
     const [newRecord, setNewRecord] = useState(defaultRecord);
     const [showTemplates, setShowTemplates] = useState(false);
+    const [tagInput, setTagInput] = useState('');
     const templateRef = useRef(null);
 
     // Initialize form when opening or when editingRecord changes
@@ -20,12 +21,14 @@ const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, t, showT
                     ttl: editingRecord.ttl,
                     proxied: editingRecord.proxied,
                     comment: editingRecord.comment || '',
+                    tags: editingRecord.tags || [],
                     priority: editingRecord.priority || 10,
                     data: editingRecord.data || {}
                 });
             } else {
                 setNewRecord(defaultRecord);
             }
+            setTagInput('');
             setShowTemplates(false);
         }
     }, [show, editingRecord]);
@@ -50,32 +53,32 @@ const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, t, showT
         {
             key: 'spf',
             label: t('templateSpf'),
-            record: { type: 'TXT', name: '@', content: 'v=spf1 mx ~all', ttl: 1, proxied: false, comment: '', priority: 10, data: {} }
+            record: { type: 'TXT', name: '@', content: 'v=spf1 mx ~all', ttl: 1, proxied: false, comment: '', tags: [], priority: 10, data: {} }
         },
         {
             key: 'dmarc',
             label: t('templateDmarc'),
-            record: { type: 'TXT', name: '_dmarc', content: `v=DMARC1; p=none; rua=mailto:dmarc@${zone.name}`, ttl: 1, proxied: false, comment: '', priority: 10, data: {} }
+            record: { type: 'TXT', name: '_dmarc', content: `v=DMARC1; p=none; rua=mailto:dmarc@${zone.name}`, ttl: 1, proxied: false, comment: '', tags: [], priority: 10, data: {} }
         },
         {
             key: 'google_mx',
             label: t('templateGoogleMx'),
-            record: { type: 'MX', name: '@', content: 'aspmx.l.google.com', ttl: 1, proxied: false, comment: 'Google Workspace MX (1 of 5)', priority: 1, data: {} }
+            record: { type: 'MX', name: '@', content: 'aspmx.l.google.com', ttl: 1, proxied: false, comment: 'Google Workspace MX (1 of 5)', tags: [], priority: 1, data: {} }
         },
         {
             key: 'www_cname',
             label: t('templateWwwCname'),
-            record: { type: 'CNAME', name: 'www', content: zone.name, ttl: 1, proxied: true, comment: '', priority: 10, data: {} }
+            record: { type: 'CNAME', name: 'www', content: zone.name, ttl: 1, proxied: true, comment: '', tags: [], priority: 10, data: {} }
         },
         {
             key: 'mail_mx',
             label: t('templateMailMx'),
-            record: { type: 'MX', name: '@', content: `mail.${zone.name}`, ttl: 1, proxied: false, comment: '', priority: 10, data: {} }
+            record: { type: 'MX', name: '@', content: `mail.${zone.name}`, ttl: 1, proxied: false, comment: '', tags: [], priority: 10, data: {} }
         },
         {
             key: 'google_verify',
             label: t('templateGoogleVerify'),
-            record: { type: 'TXT', name: '@', content: 'google-site-verification=PASTE_CODE_HERE', ttl: 1, proxied: false, comment: '', priority: 10, data: {} }
+            record: { type: 'TXT', name: '@', content: 'google-site-verification=PASTE_CODE_HERE', ttl: 1, proxied: false, comment: '', tags: [], priority: 10, data: {} }
         }
     ];
 
@@ -394,8 +397,49 @@ const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, t, showT
                             type="text"
                             value={newRecord.comment || ''}
                             onChange={e => setNewRecord({ ...newRecord, comment: e.target.value })}
-                            placeholder={t('comment')}
+                            placeholder={t('commentPlaceholder')}
                         />
+                    </div>
+                    <div className="input-row" style={{ alignItems: 'flex-start' }}>
+                        <label style={{ paddingTop: '8px' }}>{t('tags')}</label>
+                        <div style={{ flex: 1 }}>
+                            {(newRecord.tags || []).length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+                                    {(newRecord.tags || []).map((tag, idx) => (
+                                        <span key={idx} style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                            background: 'var(--select-active-bg, #eef2ff)', color: 'var(--primary)',
+                                            padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 500
+                                        }}>
+                                            {tag}
+                                            <span
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => setNewRecord({ ...newRecord, tags: newRecord.tags.filter((_, i) => i !== idx) })}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setNewRecord({ ...newRecord, tags: newRecord.tags.filter((_, i) => i !== idx) }); } }}
+                                                style={{ cursor: 'pointer', fontSize: '0.85rem', lineHeight: 1, opacity: 0.7 }}
+                                            >&times;</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <input
+                                type="text"
+                                value={tagInput}
+                                onChange={e => setTagInput(e.target.value)}
+                                onKeyDown={e => {
+                                    if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                                        e.preventDefault();
+                                        const newTag = tagInput.trim().replace(/,/g, '');
+                                        if (newTag && !(newRecord.tags || []).includes(newTag)) {
+                                            setNewRecord({ ...newRecord, tags: [...(newRecord.tags || []), newTag] });
+                                        }
+                                        setTagInput('');
+                                    }
+                                }}
+                                placeholder={t('tagsPlaceholder')}
+                            />
+                        </div>
                     </div>
                     {['A', 'AAAA', 'CNAME'].includes(newRecord.type) && (
                         <div className="input-row" style={{ alignItems: 'center' }}>

@@ -225,11 +225,14 @@ const ZoneDetail = ({ zone, zones, onSwitchZone, onRefreshZones, zonesLoading, a
         setShowDNSModal(true);
     };
 
-    const filteredRecords = records.filter(r =>
-        r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.type.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredRecords = records.filter(r => {
+        const term = searchTerm.toLowerCase();
+        return r.name.toLowerCase().includes(term) ||
+            r.content.toLowerCase().includes(term) ||
+            r.type.toLowerCase().includes(term) ||
+            (r.comment && r.comment.toLowerCase().includes(term)) ||
+            (r.tags && r.tags.some(tag => tag.toLowerCase().includes(term)));
+    });
 
     const filteredSaaS = hostnames.filter(h =>
         h.hostname.toLowerCase().includes(searchTerm.toLowerCase())

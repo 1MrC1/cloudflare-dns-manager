@@ -64,12 +64,14 @@ export async function onRequestGet(context) {
         const allResults = await Promise.all(promises);
         for (const records of allResults) results.push(...records);
 
-        // Also do client-side filtering for content match (CF search may only match name)
+        // Also do client-side filtering for content, comment, and tags match (CF search may only match name)
         const lowerQuery = query.toLowerCase();
         const filtered = results.filter(r =>
             r.name.toLowerCase().includes(lowerQuery) ||
             (r.content && r.content.toLowerCase().includes(lowerQuery)) ||
-            r.type.toLowerCase().includes(lowerQuery)
+            r.type.toLowerCase().includes(lowerQuery) ||
+            (r.comment && r.comment.toLowerCase().includes(lowerQuery)) ||
+            (r.tags && r.tags.some(tag => tag.toLowerCase().includes(lowerQuery)))
         );
 
         return new Response(JSON.stringify({
