@@ -13,8 +13,8 @@ const EXACT_LIMITS = {
 
 // Prefix-based matches (checked in order, first match wins)
 const PREFIX_LIMITS = [
-    { prefix: '/api/zones/', key: '/api/zones', max: 30, windowSec: 60 },
-    { prefix: '/api/admin/', key: '/api/admin', max: 20, windowSec: 60 },
+    { prefix: '/api/zones/', key: '/api/zones', max: 120, windowSec: 60 },
+    { prefix: '/api/admin/', key: '/api/admin', max: 40, windowSec: 60 },
     { prefix: '/api/passkey/', key: '/api/passkey', max: 10, windowSec: 60 },
 ];
 

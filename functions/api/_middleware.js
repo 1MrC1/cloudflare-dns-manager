@@ -106,9 +106,11 @@ export async function onRequest(context) {
         if (clientEmail) {
             // Global API Key mode
             context.data.cfHeaders = buildCfHeaders({ type: 'global_key', email: clientEmail, key: clientToken });
+            context.data.authType = 'global_key';
         } else {
             // API Token mode
             context.data.cfHeaders = buildCfHeaders({ token: clientToken });
+            context.data.authType = 'api_token';
         }
         context.data.cfToken = clientToken; // backward compat
         const response = await next();
@@ -167,8 +169,14 @@ export async function onRequest(context) {
 
             // Fallback: env vars (for backward compat, admin only)
             if (!tokenEntry && username === 'admin') {
+                const envEmail = accountIndex > 0 ? env[`CF_API_EMAIL${accountIndex}`] : env.CF_API_EMAIL;
+                const envKey = accountIndex > 0 ? env[`CF_GLOBAL_API_KEY${accountIndex}`] : env.CF_GLOBAL_API_KEY;
                 const envToken = accountIndex > 0 ? env[`CF_API_TOKEN${accountIndex}`] : env.CF_API_TOKEN;
-                if (envToken) tokenEntry = { token: envToken };
+                if (envEmail && (envKey || envToken)) {
+                    tokenEntry = { type: 'global_key', email: envEmail, key: envKey || envToken };
+                } else if (envToken) {
+                    tokenEntry = { token: envToken };
+                }
             }
 
             if (!tokenEntry) {
@@ -180,6 +188,7 @@ export async function onRequest(context) {
 
             context.data.cfHeaders = buildCfHeaders(tokenEntry);
             context.data.cfToken = tokenEntry.token || tokenEntry.key; // backward compat
+            context.data.authType = tokenEntry.type === 'global_key' ? 'global_key' : 'api_token';
 
             // Zone-level access control for non-admin users
             const zoneMatch = url.pathname.match(/^\/api\/zones\/([^/]+)/);

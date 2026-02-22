@@ -401,34 +401,31 @@ const App = () => {
         const batchCache = zoneFetchCache.current;
         batchCache.clear();
 
+        // Helper: fetch zones and extract result + authType from response
+        const fetchZonesApi = (headers) => fetch('/api/zones', { headers }).then(async res => {
+            if (res.ok) {
+                const data = await res.json();
+                return { zones: data.result || [], authType: data._authType || 'api_token' };
+            }
+            return { zones: [], authType: 'api_token' };
+        }).catch(() => ({ zones: [], authType: 'api_token' }));
+
         if (globalLocal && authData.mode === 'server') {
             // Local mode: only use tokens from localStorage
             const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
             const keys = Object.keys(localTokens);
             for (const key of keys) {
                 const token = localTokens[key];
-                // Deduplicate by token — skip if already fetching for this token
                 const cacheKey = `local:${token}`;
-                if (batchCache.has(cacheKey)) {
-                    promises.push(batchCache.get(cacheKey).then(zones =>
-                        zones.map(z => ({ ...z, _localKey: key, _owner: key, _accountType: 'api_token', _accountName: key, _tokenHint: '…' + token.slice(-4) }))
-                    ));
-                    continue;
+                if (!batchCache.has(cacheKey)) {
+                    batchCache.set(cacheKey, fetchZonesApi({ 'X-Cloudflare-Token': token }));
                 }
-                const fetchPromise = fetch('/api/zones', { headers: { 'X-Cloudflare-Token': token } }).then(async res => {
-                    if (res.ok) {
-                        const data = await res.json();
-                        return data.result || [];
-                    }
-                    console.error(`Failed to fetch zones for local token ${key}: HTTP ${res.status}`);
-                    return [];
-                }).catch((err) => { console.error(`Failed to fetch zones for local token ${key}:`, err); return []; });
-                batchCache.set(cacheKey, fetchPromise);
-                promises.push(fetchPromise.then(zones => zones.map(z => ({ ...z, _localKey: key, _owner: key, _accountType: 'api_token', _accountName: key, _tokenHint: '…' + token.slice(-4) }))));
+                promises.push(batchCache.get(cacheKey).then(({ zones, authType }) =>
+                    zones.map(z => ({ ...z, _localKey: key, _owner: key, _accountType: authType, _accountName: key, _tokenHint: '…' + token.slice(-4) }))
+                ));
             }
         } else {
             // Server mode: use JWT + managed accounts
-            // Batch all account fetches per session into a single parallel operation
             const sessions = authData.sessions || [{ token: authData.token, username: authData.username, role: authData.role, accounts: authData.accounts || [] }];
             for (let si = 0; si < sessions.length; si++) {
                 const session = sessions[si];
@@ -437,47 +434,26 @@ const App = () => {
                 if (accounts.length === 0) {
                     const cacheKey = `session:${session.token}:0`;
                     if (!batchCache.has(cacheKey)) {
-                        const fetchPromise = fetch('/api/zones', {
-                            headers: { 'Authorization': `Bearer ${session.token}`, 'X-Managed-Account-Index': '0' }
-                        }).then(async res => {
-                            if (res.ok) {
-                                const data = await res.json();
-                                return data.result || [];
-                            }
-                            console.error(`Failed to fetch zones for session ${session.username} (account 0): HTTP ${res.status}`);
-                            return [];
-                        }).catch((err) => { console.error(`Failed to fetch zones for session ${session.username} (account 0):`, err); return []; });
-                        batchCache.set(cacheKey, fetchPromise);
+                        batchCache.set(cacheKey, fetchZonesApi({ 'Authorization': `Bearer ${session.token}`, 'X-Managed-Account-Index': '0' }));
                     }
                     sessionPromises.push(
-                        batchCache.get(cacheKey).then(zones =>
-                            zones.map(z => ({ ...z, _sessionIdx: si, _accountIdx: 0, _owner: session.username, _accountType: authData.email ? 'global_key' : 'api_token', _accountName: authData.email || session.username || 'Default', _tokenHint: '' }))
+                        batchCache.get(cacheKey).then(({ zones, authType }) =>
+                            zones.map(z => ({ ...z, _sessionIdx: si, _accountIdx: 0, _owner: session.username, _accountType: authType, _accountName: authData.email || session.username || 'Default', _tokenHint: '' }))
                         )
                     );
                 } else {
                     for (const acc of accounts) {
                         const cacheKey = `session:${session.token}:${acc.id}`;
                         if (!batchCache.has(cacheKey)) {
-                            const fetchPromise = fetch('/api/zones', {
-                                headers: { 'Authorization': `Bearer ${session.token}`, 'X-Managed-Account-Index': String(acc.id) }
-                            }).then(async res => {
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    return data.result || [];
-                                }
-                                console.error(`Failed to fetch zones for session ${session.username} (account ${acc.id}): HTTP ${res.status}`);
-                                return [];
-                            }).catch((err) => { console.error(`Failed to fetch zones for session ${session.username} (account ${acc.id}):`, err); return []; });
-                            batchCache.set(cacheKey, fetchPromise);
+                            batchCache.set(cacheKey, fetchZonesApi({ 'Authorization': `Bearer ${session.token}`, 'X-Managed-Account-Index': String(acc.id) }));
                         }
                         sessionPromises.push(
-                            batchCache.get(cacheKey).then(zones =>
-                                zones.map(z => ({ ...z, _sessionIdx: si, _accountIdx: acc.id, _owner: session.username, _accountType: acc.type || 'api_token', _accountName: acc.name || `Account ${acc.id}`, _tokenHint: acc.hint || '' }))
+                            batchCache.get(cacheKey).then(({ zones, authType }) =>
+                                zones.map(z => ({ ...z, _sessionIdx: si, _accountIdx: acc.id, _owner: session.username, _accountType: acc.type || authType, _accountName: acc.name || `Account ${acc.id}`, _tokenHint: acc.hint || '' }))
                             )
                         );
                     }
                 }
-                // Batch all account fetches for this session into a single Promise.all
                 promises.push(Promise.all(sessionPromises).then(results => results.flat()));
             }
         }
@@ -552,23 +528,9 @@ const App = () => {
                 if (credentials.refreshToken && credentials.mode === 'server') {
                     tryRefreshToken(credentials).then(async (updated) => {
                         if (updated) {
-                            // Fetch fresh accounts from admin/settings (definitive source for types)
-                            try {
-                                const accRes = await fetch('/api/admin/settings', { headers: { 'Authorization': `Bearer ${updated.token}` } });
-                                if (accRes.ok) {
-                                    const accData = await accRes.json();
-                                    const fresh = accData.accounts || [];
-                                    if (fresh.length > 0) {
-                                        const si = updated.activeSessionIndex || 0;
-                                        const newSessions = [...(updated.sessions || [])];
-                                        if (newSessions[si]) newSessions[si] = { ...newSessions[si], accounts: fresh };
-                                        updated = { ...updated, accounts: fresh, sessions: newSessions };
-                                    }
-                                }
-                            } catch (e) { /* use refresh accounts as fallback */ }
-                            setAuth(updated);
-                            persistAuth(updated);
-                            fetchZones(updated);
+                            // Use refreshAuthAccounts (same path that works after adding accounts)
+                            const newAuth = await refreshAuthAccounts(updated);
+                            fetchZones(newAuth);
                         } else {
                             // Refresh failed — try with existing token (may still work)
                             setAuth(credentials);
@@ -1553,7 +1515,13 @@ const App = () => {
                                     for (const z of filtered) {
                                         const gk = `${z._sessionIdx ?? 'L'}_${z._accountIdx ?? z._localKey ?? 0}`;
                                         if (!groupMap.has(gk)) {
-                                            const group = { key: gk, type: z._accountType, name: z._accountName, tokenHint: z._tokenHint, sessionIdx: z._sessionIdx, accountIdx: z._accountIdx, localKey: z._localKey, zones: [] };
+                                            // Resolve type from current auth state (safety net for stale zone data)
+                                            let resolvedType = z._accountType;
+                                            if (z._sessionIdx != null && auth.sessions?.[z._sessionIdx]?.accounts) {
+                                                const acc = auth.sessions[z._sessionIdx].accounts.find(a => a.id === z._accountIdx);
+                                                if (acc?.type) resolvedType = acc.type;
+                                            }
+                                            const group = { key: gk, type: resolvedType, name: z._accountName, tokenHint: z._tokenHint, sessionIdx: z._sessionIdx, accountIdx: z._accountIdx, localKey: z._localKey, zones: [] };
                                             groupMap.set(gk, group);
                                             groups.push(group);
                                         }

@@ -74,6 +74,22 @@ export async function onRequestPost(context) {
             }
         }
 
+        // Fallback: env var accounts for admin
+        if (accounts.length === 0 && username === 'admin') {
+            for (let i = 0; i < 10; i++) {
+                const envToken = i === 0 ? env.CF_API_TOKEN : env[`CF_API_TOKEN${i}`];
+                const envEmail = i === 0 ? env.CF_API_EMAIL : env[`CF_API_EMAIL${i}`];
+                const envKey = i === 0 ? env.CF_GLOBAL_API_KEY : env[`CF_GLOBAL_API_KEY${i}`];
+                if (envEmail && (envKey || envToken)) {
+                    accounts.push({ id: i, name: envEmail, type: 'global_key', hint: envEmail });
+                } else if (envToken) {
+                    accounts.push({ id: i, name: `API Token ${i}`, type: 'api_token', hint: '…' + envToken.slice(-4) });
+                } else {
+                    break;
+                }
+            }
+        }
+
         return new Response(JSON.stringify({
             token: accessToken,
             accounts,

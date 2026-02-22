@@ -43,6 +43,22 @@ export async function onRequestGet(context) {
         return { id: t.id, name: t.name, type: tp, source: 'kv', hint: tp === 'global_key' ? (t.email || '') : (t.token ? '…' + t.token.slice(-4) : '') };
     });
 
+    // Fallback: if no KV tokens and user is admin, auto-detect env var accounts
+    if (accounts.length === 0 && username === 'admin') {
+        for (let i = 0; i < 10; i++) {
+            const envToken = i === 0 ? env.CF_API_TOKEN : env[`CF_API_TOKEN${i}`];
+            const envEmail = i === 0 ? env.CF_API_EMAIL : env[`CF_API_EMAIL${i}`];
+            const envKey = i === 0 ? env.CF_GLOBAL_API_KEY : env[`CF_GLOBAL_API_KEY${i}`];
+            if (envEmail && (envKey || envToken)) {
+                accounts.push({ id: i, name: envEmail, type: 'global_key', source: 'env', hint: envEmail });
+            } else if (envToken) {
+                accounts.push({ id: i, name: `API Token ${i}`, type: 'api_token', source: 'env', hint: '…' + envToken.slice(-4) });
+            } else {
+                break;
+            }
+        }
+    }
+
     return new Response(JSON.stringify({ accounts }), {
         headers: { 'Content-Type': 'application/json' }
     });

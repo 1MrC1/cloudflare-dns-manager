@@ -25,6 +25,11 @@ export async function onRequestGet(context) {
         }
     }
 
+    // Include auth type so frontend knows if this is AT or GK
+    if (data.success) {
+        data._authType = context.data.authType || 'api_token';
+    }
+
     return new Response(JSON.stringify(data), {
         status: response.status,
         headers: { 'Content-Type': 'application/json' }
