@@ -1,8 +1,14 @@
-# CF DNS Manager
+# Cloudflare DNS Manager
 
-A modern, self-hosted Cloudflare DNS management dashboard built with React and deployed on Cloudflare Pages.
+**English** | [简体中文](./README.zh-CN.md) | [繁體中文](./README.zh-TW.md)
 
-![Screenshot](screenshot-placeholder.png)
+A modern, serverless Cloudflare DNS management dashboard. Runs entirely on Cloudflare Pages (free tier) with no servers, no databases, and no Docker — just deploy and go. The backend is Cloudflare Pages Functions (Workers runtime), storage is Cloudflare KV. Total infrastructure cost: $0.
+
+**Live Demo:** [cfdns.demo.c.nf](https://cfdns.demo.c.nf)
+
+![Login](https://github.com/user-attachments/assets/2af36988-0911-42c3-b4b6-7e660b3b5b90)
+
+![Dashboard](https://github.com/user-attachments/assets/66eaaa49-561d-4cad-a0fc-377a1fa1f402)
 
 ## Features
 
@@ -77,25 +83,61 @@ npm run build
 
 ### Deploy to Cloudflare Pages
 
-1. Push the repository to GitHub.
-2. In the Cloudflare Dashboard, create a new Pages project connected to your repo.
-3. Set the build command to `npm run build` and the output directory to `dist`.
-4. Add the required environment variables and KV binding (see below).
-5. Deploy.
+#### Option A: GitHub Integration (recommended)
+
+1. Fork or push this repository to your GitHub account.
+2. Go to **Cloudflare Dashboard** > **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
+3. Select your repository and configure:
+   - **Build command:** `npm run build`
+   - **Build output directory:** `dist`
+4. Add environment variables (see below) and deploy.
+
+#### Option B: Direct Upload via CLI
+
+```bash
+npm install
+npm run build
+npx wrangler pages project create my-dns-manager
+npx wrangler pages deploy dist --project-name my-dns-manager
+```
+
+#### Post-Deploy Setup
+
+1. **Create a KV namespace:**
+   - Go to **Workers & Pages** > **KV** > **Create a namespace**
+   - Name it anything (e.g. `dns-manager-kv`)
+
+2. **Bind KV to your Pages project:**
+   - Go to your Pages project > **Settings** > **Functions** > **KV namespace bindings**
+   - Add binding: Variable name = `CF_DNS_KV`, KV namespace = the one you just created
+
+3. **Set environment variables:**
+   - Go to **Settings** > **Environment variables**
+   - Add the variables listed below
+
+4. **Redeploy** for bindings to take effect (trigger a new deployment or redeploy from the dashboard).
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `APP_PASSWORD` | Yes (server mode) | Admin password for the default `admin` account |
+| `APP_PASSWORD` | Yes (server mode) | Admin password for the default `admin` account. Used to log in as the built-in `admin` user. |
+
+> **Note:** You do not need to set `CF_API_TOKEN` as an environment variable. API tokens are added per-user through the dashboard UI after login and stored in KV.
 
 ### KV Namespace Binding
 
-| Binding Name | Description |
-|--------------|-------------|
-| `CF_DNS_KV` | Cloudflare KV namespace for storing accounts, sessions, settings, monitors, scheduled changes, and audit logs |
+| Binding Name | Required | Description |
+|--------------|----------|-------------|
+| `CF_DNS_KV` | Yes | Stores user accounts, API tokens, sessions, settings, audit logs, DNS snapshots, monitors, and scheduled changes |
 
-Create a KV namespace in the Cloudflare Dashboard and bind it as `CF_DNS_KV` in your Pages project settings.
+### Optional: Custom Domain
+
+To use your own domain instead of the `*.pages.dev` URL:
+
+1. Go to your Pages project > **Custom domains** > **Set up a custom domain**
+2. Enter your subdomain (e.g. `dns.example.com`) — the domain must be a zone in the same Cloudflare account
+3. Cloudflare auto-creates the CNAME record and provisions SSL
 
 ## API Overview
 

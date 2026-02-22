@@ -38,6 +38,9 @@ function findLimit(pathname) {
 const memCache = new Map();
 const MEM_TTL = 5000; // sync to KV every 5 seconds
 
+// Exported for tests
+export function _resetMemCache() { memCache.clear(); }
+
 export async function checkRateLimit(kv, ip, pathname) {
     if (!kv) return null; // No KV, skip rate limiting
 

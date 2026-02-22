@@ -85,3 +85,6 @@ dist/
 # Wrangler/Cloudflare cache
 .wrangler/
 .vite/
+
+# Claude Code
+.claude/

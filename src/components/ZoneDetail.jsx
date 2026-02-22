@@ -27,7 +27,7 @@ const EmailRouting = React.lazy(() => import('./EmailRouting.jsx'));
 const CustomPages = React.lazy(() => import('./CustomPages.jsx'));
 const DnsAnalytics = React.lazy(() => import('./DnsAnalytics.jsx'));
 
-const ZoneDetail = forwardRef(({ zone, auth, tab, onBack, t, showToast, onToggleZoneStorage, zoneStorageLoading, onUnbindZone, onRefreshZones }, ref) => {
+const ZoneDetail = forwardRef(function ZoneDetail({ zone, auth, tab, onBack, t, showToast, onToggleZoneStorage, zoneStorageLoading, onUnbindZone, onRefreshZones }, ref) {
     const [records, setRecords] = useState([]);
     const [hostnames, setHostnames] = useState([]);
     const [loading, setLoading] = useState(true);

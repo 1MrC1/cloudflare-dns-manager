@@ -102,7 +102,7 @@ export async function generateTOTPCode(secret, time) {
         ['sign']
     );
 
-    const hmac = new Uint8Array(await crypto.subtle.sign('HMAC', key, counterBuf));
+    const hmac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new Uint8Array(counterBuf)));
 
     // Dynamic truncation (RFC 4226 section 5.4)
     const offset = hmac[hmac.length - 1] & 0x0f;

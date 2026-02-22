@@ -2,7 +2,7 @@ import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'rea
 import { Server, Edit2, Trash2, RefreshCw, AlertCircle, X, Copy } from 'lucide-react';
 import CustomSelect from './CustomSelect.jsx';
 
-const SaasTab = forwardRef(({ zone, hostnames, filteredSaaS, loading, fetchHostnames, getHeaders, t, showToast, openConfirm }, ref) => {
+const SaasTab = forwardRef(function SaasTab({ zone, hostnames, filteredSaaS, loading, fetchHostnames, getHeaders, t, showToast, openConfirm }, ref) {
     const initialSaaS = {
         hostname: '',
         ssl: {

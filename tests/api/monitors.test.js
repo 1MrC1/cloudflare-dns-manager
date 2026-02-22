@@ -136,7 +136,7 @@ describe('POST /api/monitors', () => {
         const json = await getResponseJson(res);
 
         expect(res.status).toBe(400);
-        expect(json.error).toMatch(/missing required fields/i);
+        expect(json.error).toMatch(/missing required field/i);
     });
 
     it('returns 400 when recordType is missing', async () => {

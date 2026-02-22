@@ -1,4 +1,4 @@
-import { checkRateLimit } from '../../functions/api/_rate-limit.js';
+import { checkRateLimit, _resetMemCache } from '../../functions/api/_rate-limit.js';
 
 function createMockKV() {
     const store = {};
@@ -10,6 +10,7 @@ function createMockKV() {
 }
 
 describe('checkRateLimit', () => {
+    beforeEach(() => { _resetMemCache(); });
     it('returns null when kv is null', async () => {
         const result = await checkRateLimit(null, '1.2.3.4', '/api/login');
         expect(result).toBeNull();
@@ -23,8 +24,8 @@ describe('checkRateLimit', () => {
 
     it('rate limits prefix-matched endpoints', async () => {
         const kv = createMockKV();
-        // /api/zones/ prefix has max: 30, windowSec: 60
-        for (let i = 0; i < 30; i++) {
+        // /api/zones/ prefix has max: 120, windowSec: 60
+        for (let i = 0; i < 120; i++) {
             const r = await checkRateLimit(kv, '1.2.3.4', '/api/zones/example.com');
             expect(r).toBeNull();
         }
@@ -35,13 +36,13 @@ describe('checkRateLimit', () => {
     it('groups prefix-matched sub-paths under the same key', async () => {
         const kv = createMockKV();
         // Requests to different sub-paths under /api/zones/ share the same limit
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 60; i++) {
             await checkRateLimit(kv, '1.2.3.4', '/api/zones/a.com');
         }
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 60; i++) {
             await checkRateLimit(kv, '1.2.3.4', '/api/zones/b.com');
         }
-        // Total is now 30, so the next request should be rate-limited
+        // Total is now 120, so the next request should be rate-limited
         const result = await checkRateLimit(kv, '1.2.3.4', '/api/zones/c.com');
         expect(result).toBeGreaterThan(0);
     });
