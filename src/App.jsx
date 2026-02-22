@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { Server, User, Shield, Key, LogOut, Plus, Trash2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe, Layers, Keyboard, WifiOff, Activity, Menu, BarChart3, Database, FileText, ShieldAlert, Wifi, Eye, Code, ArrowRightLeft, BarChart2, Repeat, Mail, FileWarning } from 'lucide-react';
+import { Server, User, Shield, Key, LogOut, Plus, Trash2, RefreshCw, Zap, Languages, CheckCircle, AlertCircle, X, ChevronDown, Settings, Save, Fingerprint, Moon, Sun, Search, Upload, Globe, Layers, Keyboard, WifiOff, Activity, Menu, BarChart3, Database, FileText, ShieldAlert, Wifi, Eye, Code, ArrowRightLeft, BarChart2, Repeat, Mail, FileWarning, Copy } from 'lucide-react';
 import useTranslate from './hooks/useTranslate.ts';
 import { getAuthHeaders } from './utils/auth.ts';
 import SecurityBadges from './components/SecurityBadges.jsx';
@@ -1550,6 +1550,35 @@ const App = () => {
                                                     <span style={{ fontFamily: 'monospace', fontSize: '0.6rem', opacity: 0.5, flexShrink: 0 }}>{group.tokenHint}</span>
                                                 )}
                                                 <span style={{ opacity: 0.5, flexShrink: 0 }}>{group.zones.length}</span>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        (async () => {
+                                                            try {
+                                                                if (group.localKey) {
+                                                                    const localTokens = JSON.parse(localStorage.getItem('local_cf_tokens') || '{}');
+                                                                    const entry = localTokens[group.localKey];
+                                                                    const val = typeof entry === 'string' ? entry : (entry?.token || entry?.key || '');
+                                                                    if (val) { await navigator.clipboard.writeText(val); showToast(t('tokenCopied')); }
+                                                                    else showToast(t('errorOccurred'), 'error');
+                                                                } else {
+                                                                    const session = auth.sessions?.[group.sessionIdx];
+                                                                    if (!session) return;
+                                                                    const res = await fetch(`/api/admin/settings?retrieve=${group.accountIdx}`, { headers: { 'Authorization': `Bearer ${session.token}` } });
+                                                                    const data = await res.json();
+                                                                    if (data.token) { await navigator.clipboard.writeText(data.token); showToast(t('tokenCopied')); }
+                                                                    else showToast(data.error || t('errorOccurred'), 'error');
+                                                                }
+                                                            } catch { showToast(t('errorOccurred'), 'error'); }
+                                                        })();
+                                                    }}
+                                                    style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)', borderRadius: '3px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                                    title={t('copyToken')}
+                                                    onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                                                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                                                >
+                                                    <Copy size={11} />
+                                                </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setConfirmGroupDelete(group); }}
                                                     style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)', borderRadius: '3px', display: 'flex', alignItems: 'center', flexShrink: 0 }}

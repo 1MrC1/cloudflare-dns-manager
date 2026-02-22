@@ -637,7 +637,7 @@ const ZoneDetail = forwardRef(({ zone, auth, tab, onBack, t, showToast, onToggle
                 </React.Suspense>
             ) : tab === 'rules' ? (
                 <React.Suspense fallback={<TabSkeleton variant="list" />}>
-                    <RedirectRules zone={zone} getHeaders={getHeaders} t={t} showToast={showToast} />
+                    <RedirectRules zone={zone} getHeaders={getHeaders} t={t} showToast={showToast} openConfirm={openConfirm} />
                 </React.Suspense>
             ) : tab === 'analytics' ? (
                 <React.Suspense fallback={<TabSkeleton variant="analytics" />}>
@@ -649,11 +649,11 @@ const ZoneDetail = forwardRef(({ zone, auth, tab, onBack, t, showToast, onToggle
                 </React.Suspense>
             ) : tab === 'transform' ? (
                 <React.Suspense fallback={<TabSkeleton variant="list" />}>
-                    <TransformRules zone={zone} getHeaders={getHeaders} t={t} showToast={showToast} />
+                    <TransformRules zone={zone} getHeaders={getHeaders} t={t} showToast={showToast} openConfirm={openConfirm} />
                 </React.Suspense>
             ) : tab === 'origin' ? (
                 <React.Suspense fallback={<TabSkeleton variant="list" />}>
-                    <OriginRules zone={zone} getHeaders={getHeaders} t={t} showToast={showToast} />
+                    <OriginRules zone={zone} getHeaders={getHeaders} t={t} showToast={showToast} openConfirm={openConfirm} />
                 </React.Suspense>
             ) : tab === 'email' ? (
                 <React.Suspense fallback={<TabSkeleton variant="list" />}>

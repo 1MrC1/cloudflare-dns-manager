@@ -32,7 +32,7 @@ export async function onRequestGet(context) {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
-        return new Response(JSON.stringify({ token: entry.token }), {
+        return new Response(JSON.stringify({ token: entry.token || entry.key || '' }), {
             headers: { 'Content-Type': 'application/json' }
         });
     }

@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Server, AlertTriangle, ExternalLink } from 'lucide-react';
+import { RefreshCw, Server, AlertTriangle, ExternalLink, Plus, Edit2, Trash2, X } from 'lucide-react';
 import TabSkeleton from './TabSkeleton';
 
-const OriginRules = ({ zone, getHeaders, t, showToast }) => {
+const OriginRules = ({ zone, getHeaders, t, showToast, openConfirm }) => {
     const [rules, setRules] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState(null);
     const [togglingRule, setTogglingRule] = useState({});
+    const [showModal, setShowModal] = useState(false);
+    const [editRuleIndex, setEditRuleIndex] = useState(null);
+    const [saving, setSaving] = useState(false);
+
+    // Form state
+    const [description, setDescription] = useState('');
+    const [expression, setExpression] = useState('');
+    const [originHost, setOriginHost] = useState('');
+    const [originPort, setOriginPort] = useState('');
+    const [hostHeader, setHostHeader] = useState('');
+    const [ruleEnabled, setRuleEnabled] = useState(true);
 
     const fetchRules = useCallback(async () => {
         setLoading(true);
@@ -48,6 +59,93 @@ const OriginRules = ({ zone, getHeaders, t, showToast }) => {
         setTogglingRule(prev => ({ ...prev, [ruleIdx]: false }));
     };
 
+    const openAdd = () => {
+        setEditRuleIndex(null);
+        setDescription('');
+        setExpression('');
+        setOriginHost('');
+        setOriginPort('');
+        setHostHeader('');
+        setRuleEnabled(true);
+        setShowModal(true);
+    };
+
+    const openEdit = (rule, idx) => {
+        setEditRuleIndex(idx);
+        setDescription(rule.description || '');
+        setExpression(rule.expression || '');
+        setOriginHost(rule.action_parameters?.origin?.host || '');
+        setOriginPort(rule.action_parameters?.origin?.port?.toString() || '');
+        setHostHeader(rule.action_parameters?.host_header || '');
+        setRuleEnabled(rule.enabled !== false);
+        setShowModal(true);
+    };
+
+    const handleSave = async () => {
+        if (!expression.trim()) { showToast(t('ruleExpression') + ' required', 'error'); return; }
+        if (!originHost.trim() && !originPort.trim() && !hostHeader.trim()) {
+            showToast('At least one origin override required', 'error'); return;
+        }
+        setSaving(true);
+        const actionParams = {};
+        if (originHost.trim() || originPort.trim()) {
+            actionParams.origin = {};
+            if (originHost.trim()) actionParams.origin.host = originHost.trim();
+            if (originPort.trim()) actionParams.origin.port = parseInt(originPort);
+        }
+        if (hostHeader.trim()) actionParams.host_header = hostHeader.trim();
+
+        const rule = {
+            description: description.trim(),
+            expression: expression.trim(),
+            action: 'route',
+            action_parameters: actionParams,
+            enabled: ruleEnabled
+        };
+        try {
+            const isEdit = editRuleIndex !== null;
+            const res = await fetch(`/api/zones/${zone.id}/origin-rules`, {
+                method: 'POST',
+                headers: getHeaders(true),
+                body: JSON.stringify(isEdit
+                    ? { action: 'update_rule', ruleIndex: editRuleIndex, rule }
+                    : { action: 'create_rule', rule })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(t('ruleSaved'));
+                setShowModal(false);
+                fetchRules();
+            } else {
+                showToast(data.errors?.[0]?.message || t('errorOccurred'), 'error');
+            }
+        } catch (e) {
+            showToast(t('errorOccurred'), 'error');
+        }
+        setSaving(false);
+    };
+
+    const handleDelete = (idx) => {
+        openConfirm(t('deleteRuleConfirm') || 'Delete this rule?', t('deleteRuleConfirm') || 'Are you sure?', async () => {
+            try {
+                const res = await fetch(`/api/zones/${zone.id}/origin-rules`, {
+                    method: 'POST',
+                    headers: getHeaders(true),
+                    body: JSON.stringify({ action: 'delete_rule', ruleIndex: idx })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(t('ruleDeleted'));
+                    fetchRules();
+                } else {
+                    showToast(data.errors?.[0]?.message || t('errorOccurred'), 'error');
+                }
+            } catch (e) {
+                showToast(t('errorOccurred'), 'error');
+            }
+        });
+    };
+
     const ToggleSwitch = ({ checked, onChange, disabled }) => (
         <button role="switch" aria-checked={checked} onClick={onChange} disabled={disabled}
             style={{
@@ -77,6 +175,9 @@ const OriginRules = ({ zone, getHeaders, t, showToast }) => {
         );
     }
 
+    const inputStyle = { width: '100%', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', fontSize: '0.8125rem', boxSizing: 'border-box' };
+    const labelStyle = { display: 'block', fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' };
+
     return (
         <div className="tab-enter" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -86,6 +187,9 @@ const OriginRules = ({ zone, getHeaders, t, showToast }) => {
                     <span className="badge" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>{rules.length}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-primary" onClick={openAdd} style={{ padding: '4px 10px', height: 'auto', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Plus size={12} /> {t('addRule')}
+                    </button>
                     <button className="btn btn-outline" onClick={fetchRules} disabled={loading} style={{ padding: '4px 8px', height: 'auto', fontSize: '0.75rem' }}>
                         <RefreshCw size={12} className={loading ? 'spin' : ''} />
                     </button>
@@ -97,10 +201,6 @@ const OriginRules = ({ zone, getHeaders, t, showToast }) => {
                 </div>
             </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '-1rem 0 0 0', lineHeight: 1.5 }}>{t('orDesc')}</p>
-
-            <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                {t('orInfoCard') || 'Origin rules override the origin server, port, host header, and SNI value for matching requests. Complex rule editing is available in the Cloudflare Dashboard.'}
-            </div>
 
             {rules.length === 0 ? (
                 <div className="glass-card" style={{ padding: '2rem', textAlign: 'center' }}>
@@ -123,15 +223,78 @@ const OriginRules = ({ zone, getHeaders, t, showToast }) => {
                                             Origin: {rule.action_parameters.origin.host}{rule.action_parameters.origin.port ? `:${rule.action_parameters.origin.port}` : ''}
                                         </div>
                                     )}
+                                    {rule.action_parameters?.host_header && (
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                            Host Header: {rule.action_parameters.host_header}
+                                        </div>
+                                    )}
                                 </div>
-                                <ToggleSwitch
-                                    checked={rule.enabled !== false}
-                                    onChange={() => handleToggleRule(idx, rule.enabled === false)}
-                                    disabled={togglingRule[idx]}
-                                />
+                                <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0, alignItems: 'center' }}>
+                                    <button className="btn btn-outline" onClick={() => openEdit(rule, idx)} style={{ padding: '0.35rem', borderRadius: '6px' }} title={t('editRule')}><Edit2 size={14} /></button>
+                                    <button className="btn btn-outline" onClick={() => handleDelete(idx)} style={{ padding: '0.35rem', borderRadius: '6px', color: 'var(--error)' }} title={t('delete')}><Trash2 size={14} /></button>
+                                    <ToggleSwitch
+                                        checked={rule.enabled !== false}
+                                        onChange={() => handleToggleRule(idx, rule.enabled === false)}
+                                        disabled={togglingRule[idx]}
+                                    />
+                                </div>
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Add/Edit Modal */}
+            {showModal && (
+                <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                    <div className="glass-card modal-content" onClick={e => e.stopPropagation()}
+                        style={{ width: '100%', maxWidth: '560px', padding: '1.5rem', margin: '2rem auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                            <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Server size={18} color="var(--primary)" />
+                                {editRuleIndex !== null ? t('editRule') : t('addRule')}
+                            </h3>
+                            <button onClick={() => setShowModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex' }}><X size={18} color="var(--text-muted)" /></button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <div>
+                                <label style={labelStyle}>{t('ruleDescription')}</label>
+                                <input value={description} onChange={e => setDescription(e.target.value)} placeholder="My origin rule" style={inputStyle} />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>{t('ruleExpression')}</label>
+                                <textarea value={expression} onChange={e => setExpression(e.target.value)}
+                                    placeholder={t('ruleExpressionPlaceholder') || '(http.host eq "example.com")'}
+                                    rows={3} style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '0.75rem', resize: 'vertical' }} />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>{t('orOriginHost')}</label>
+                                <input value={originHost} onChange={e => setOriginHost(e.target.value)} placeholder="origin.example.com" style={inputStyle} />
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={labelStyle}>{t('orOriginPort')}</label>
+                                    <input type="number" value={originPort} onChange={e => setOriginPort(e.target.value)} placeholder="443" style={inputStyle} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={labelStyle}>{t('orHostHeader')}</label>
+                                    <input value={hostHeader} onChange={e => setHostHeader(e.target.value)} placeholder="custom-host.example.com" style={inputStyle} />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>{t('ruleEnabled')}:</label>
+                                <ToggleSwitch checked={ruleEnabled} onChange={() => setRuleEnabled(!ruleEnabled)} />
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.25rem' }}>
+                            <button className="btn btn-outline" onClick={() => setShowModal(false)}>{t('cancel')}</button>
+                            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                                {saving ? <RefreshCw size={14} className="spin" /> : (editRuleIndex !== null ? t('saveRule') : t('addRule'))}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
