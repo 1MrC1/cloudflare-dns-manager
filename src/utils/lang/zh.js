@@ -545,6 +545,17 @@ export default {
         speedH2Desc: '优化 HTTP/2 下资源的传输顺序',
         speed_0rtt: '0-RTT 连接恢复',
         speed0rttDesc: '允许 TLS 1.3 连接在无需完整握手的情况下恢复',
+        speed_fonts: 'Cloudflare 字体',
+        speedFontsDesc: '将 Google Fonts 重写为从您的域名提供，消除第三方连接，提升隐私和性能。',
+        speed_polish: 'Polish (图片优化)',
+        speedPolishDesc: '优化网站图片大小。无损模式在不影响质量的情况下减小文件大小；有损模式提供更高压缩率。',
+        speedPolish_off: '关闭',
+        speedPolish_lossless: '无损',
+        speedPolish_lossy: '有损',
+        speed_mirage: 'Mirage',
+        speedMirageDesc: '通过延迟加载图片和提供优化占位符来加速移动设备上的图片加载。',
+        speed_image_resizing: '图片调整大小',
+        speedImageResizingDesc: '通过 URL 参数或 Workers 实时调整、裁剪和转换图片。',
 
         // SSL/TLS
         sslTab: 'SSL/TLS',

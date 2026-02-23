@@ -10,6 +10,11 @@ const SETTINGS_META = [
         warningKey: 'speedRocketLoaderWarning',
     },
     {
+        key: 'fonts',
+        type: 'toggle',
+        descKey: 'speedFontsDesc',
+    },
+    {
         key: 'minify',
         type: 'minify',
         descKey: 'speedMinifyDesc',
@@ -33,6 +38,22 @@ const SETTINGS_META = [
         key: '0rtt',
         type: 'toggle',
         descKey: 'speed0rttDesc',
+    },
+    {
+        key: 'polish',
+        type: 'select',
+        descKey: 'speedPolishDesc',
+        options: ['off', 'lossless', 'lossy'],
+    },
+    {
+        key: 'mirage',
+        type: 'toggle',
+        descKey: 'speedMirageDesc',
+    },
+    {
+        key: 'image_resizing',
+        type: 'toggle',
+        descKey: 'speedImageResizingDesc',
     },
 ];
 
@@ -126,6 +147,9 @@ const SpeedOptimization = ({ zone, getHeaders, authFetch, t, showToast }) => {
         if (key === 'minify') {
             const v = settings?.minify;
             return v && (v.js || v.css || v.html);
+        }
+        if (key === 'polish') {
+            return settings?.[key] && settings[key] !== 'off';
         }
         return settings?.[key] === 'on';
     };
@@ -342,6 +366,40 @@ const SpeedOptimization = ({ zone, getHeaders, authFetch, t, showToast }) => {
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+                            );
+                        }
+
+                        if (type === 'select') {
+                            const currentVal = settings?.[key] || 'off';
+                            const opts = SETTINGS_META.find(m => m.key === key)?.options || [];
+                            const selectOn = currentVal !== 'off';
+                            return (
+                                <div key={key} className="glass-card" style={{ padding: '1rem', background: 'var(--subtle-bg)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {statusDot(selectOn)}
+                                            <h4 style={{ fontSize: '0.875rem', margin: 0 }}>{t(`speed_${key}`)}</h4>
+                                            {isSaving && <RefreshCw size={12} className="spin" style={{ color: 'var(--text-muted)' }} />}
+                                        </div>
+                                        <select
+                                            value={currentVal}
+                                            onChange={(e) => handleToggle(key, e.target.value)}
+                                            disabled={isSaving}
+                                            style={{
+                                                padding: '4px 8px', borderRadius: '6px', fontSize: '0.8125rem',
+                                                border: '1px solid var(--border)', background: 'var(--bg)',
+                                                color: 'var(--text)', cursor: isSaving ? 'not-allowed' : 'pointer'
+                                            }}
+                                        >
+                                            {opts.map(o => (
+                                                <option key={o} value={o}>{t(`speedPolish_${o}`) || o}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 0, lineHeight: 1.5 }}>
+                                        {t(descKey)}
+                                    </p>
                                 </div>
                             );
                         }

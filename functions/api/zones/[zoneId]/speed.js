@@ -1,7 +1,7 @@
 import { logAudit } from '../../_audit.js';
 import { fireWebhook } from '../../_webhook.js';
 
-const SPEED_SETTINGS = ['rocket_loader', 'minify', 'brotli', 'early_hints', 'h2_prioritization', '0rtt'];
+const SPEED_SETTINGS = ['rocket_loader', 'minify', 'brotli', 'early_hints', 'h2_prioritization', '0rtt', 'fonts', 'polish', 'mirage', 'image_resizing'];
 
 async function cfGet(cfHeaders, zoneId, setting) {
     const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/settings/${setting}`, {
@@ -78,7 +78,11 @@ export async function onRequestPost(context) {
             brotli: 'on',
             early_hints: 'on',
             h2_prioritization: 'on',
-            '0rtt': 'on'
+            '0rtt': 'on',
+            fonts: 'on',
+            polish: 'lossless',
+            mirage: 'on',
+            image_resizing: 'on'
         };
 
         try {
@@ -130,7 +134,11 @@ export async function onRequestPost(context) {
             brotli: 'off',
             early_hints: 'off',
             h2_prioritization: 'off',
-            '0rtt': 'off'
+            '0rtt': 'off',
+            fonts: 'off',
+            polish: 'off',
+            mirage: 'off',
+            image_resizing: 'off'
         };
 
         try {

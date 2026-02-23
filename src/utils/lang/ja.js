@@ -545,6 +545,17 @@ export default {
         speedH2Desc: 'HTTP/2 でのリソース配信順序を最適化します',
         speed_0rtt: '0-RTT 接続再開',
         speed0rttDesc: 'TLS 1.3 接続をフルハンドシェイクなしで再開できるようにします',
+        speed_fonts: 'Cloudflare フォント',
+        speedFontsDesc: 'Google Fontsをあなたのドメインから配信するよう書き換え、サードパーティ接続を排除してプライバシーとパフォーマンスを向上させます。',
+        speed_polish: 'Polish (画像最適化)',
+        speedPolishDesc: 'サイトの画像サイズを最適化します。ロスレスは品質を保ちつつファイルサイズを縮小、ロッシーはより高い圧縮率を提供します。',
+        speedPolish_off: 'オフ',
+        speedPolish_lossless: 'ロスレス',
+        speedPolish_lossy: 'ロッシー',
+        speed_mirage: 'Mirage',
+        speedMirageDesc: '画像の遅延読み込みと最適化されたプレースホルダーにより、モバイルデバイスでの画像読み込みを高速化します。',
+        speed_image_resizing: '画像リサイズ',
+        speedImageResizingDesc: 'URLパラメータまたはWorkersを使用して、画像をリアルタイムでリサイズ、トリミング、変換します。',
 
         // SSL/TLS
         sslTab: 'SSL/TLS',

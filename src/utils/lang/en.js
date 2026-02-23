@@ -545,6 +545,17 @@ export default {
         speedH2Desc: 'Optimize the order of resource delivery over HTTP/2',
         speed_0rtt: '0-RTT Connection Resumption',
         speed0rttDesc: 'Allow TLS 1.3 connections to resume without a full handshake',
+        speed_fonts: 'Cloudflare Fonts',
+        speedFontsDesc: 'Rewrite Google Fonts to be served from your domain, improving privacy and performance by eliminating third-party connections.',
+        speed_polish: 'Polish (Image Optimization)',
+        speedPolishDesc: 'Optimize image sizes on your site. Lossless reduces file size without quality loss; Lossy provides greater compression.',
+        speedPolish_off: 'Off',
+        speedPolish_lossless: 'Lossless',
+        speedPolish_lossy: 'Lossy',
+        speed_mirage: 'Mirage',
+        speedMirageDesc: 'Accelerate image loading on mobile devices by lazy-loading images and serving optimized placeholders.',
+        speed_image_resizing: 'Image Resizing',
+        speedImageResizingDesc: 'Resize, crop, and convert images on the fly via URL parameters or Workers.',
 
         // SSL/TLS
         sslTab: 'SSL/TLS',
