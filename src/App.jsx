@@ -427,14 +427,19 @@ const App = () => {
 
         // Helper: fetch zones and extract result + authType from response
         let got401 = false;
+        let gotError = null;
         const fetchZonesApi = (headers) => fetch('/api/zones', { headers }).then(async res => {
             if (res.ok) {
                 const data = await res.json();
                 return { zones: data.result || [], authType: data._authType || 'api_token' };
             }
             if (res.status === 401) got401 = true;
+            else if (!gotError) gotError = res.status;
             return { zones: [], authType: 'api_token' };
-        }).catch(() => ({ zones: [], authType: 'api_token' }));
+        }).catch((e) => {
+            if (!gotError) gotError = e.message || 'Network error';
+            return { zones: [], authType: 'api_token' };
+        });
 
         if (globalLocal && authData.mode === 'server') {
             // Local mode: only use tokens from localStorage
@@ -498,9 +503,15 @@ const App = () => {
                     return fetchZones(refreshed);
                 }
             }
+            showToast(t('sessionExpired'), 'error');
             setLoading(false);
             doLogout();
             return;
+        }
+
+        // Show toast for non-401 errors when no zones loaded
+        if (gotError && allZones.length === 0) {
+            showToast(typeof gotError === 'number' ? `${t('errorOccurred')} (HTTP ${gotError})` : gotError, 'error');
         }
 
         // Deduplicate zones by id (same zone might appear under different accounts)

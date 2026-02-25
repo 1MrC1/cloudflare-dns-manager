@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, ChevronDown, Clock } from 'lucide-react';
+import { BookOpen, ChevronDown, Clock, RefreshCw } from 'lucide-react';
 import CustomSelect from './CustomSelect.jsx';
 
 const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, onSchedule, t, showToast }) => {
     const defaultRecord = { type: 'A', name: '', content: '', ttl: 1, proxied: true, comment: '', tags: [], priority: 10, data: {} };
 
     const [newRecord, setNewRecord] = useState(defaultRecord);
+    const [saving, setSaving] = useState(false);
     const [showTemplates, setShowTemplates] = useState(false);
     const [tagInput, setTagInput] = useState('');
     const [showSchedulePicker, setShowSchedulePicker] = useState(false);
@@ -92,9 +93,14 @@ const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, onSchedu
         showToast(t('templateApplied'));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        onSubmit(e, newRecord, editingRecord);
+        setSaving(true);
+        try {
+            await onSubmit(e, newRecord, editingRecord);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleScheduleSubmit = () => {
@@ -484,7 +490,9 @@ const DnsRecordModal = ({ zone, show, editingRecord, onClose, onSubmit, onSchedu
                     )}
                     <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
                         <button type="button" className="btn btn-outline" style={{ flex: 1, minWidth: '80px' }} onClick={onClose}>{t('cancel')}</button>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1, minWidth: '80px' }}>{t('save')}</button>
+                        <button type="submit" className="btn btn-primary" style={{ flex: 1, minWidth: '80px' }} disabled={saving}>
+                            {saving ? <><RefreshCw size={14} className="spin" style={{ marginRight: '6px' }} />{t('saving') || t('save')}</> : t('save')}
+                        </button>
                         {onSchedule && (
                             <button
                                 type="button"

@@ -534,6 +534,28 @@ const ZoneDetail = forwardRef(function ZoneDetail({ zone, auth, authFetch, tab, 
                 </div>
             </div>
 
+            {/* Nameservers banner */}
+            {zone.name_servers && zone.name_servers.length > 0 && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap',
+                    padding: '0.5rem 0.75rem', marginBottom: '0.5rem',
+                    borderRadius: '8px', fontSize: '0.75rem',
+                    background: 'var(--select-active-bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-muted)',
+                }}>
+                    <Server size={13} style={{ flexShrink: 0, color: 'var(--primary)' }} />
+                    <span style={{ fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap' }}>{t('pointDnsTo')}</span>
+                    {zone.name_servers.map(ns => (
+                        <code key={ns} style={{
+                            fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px',
+                            background: 'var(--input-bg)', border: '1px solid var(--border)',
+                            fontFamily: 'monospace', userSelect: 'all',
+                        }}>{ns}</code>
+                    ))}
+                </div>
+            )}
+
             {/* Loading skeleton */}
             {loading && !error && records.length === 0 && hostnames.length === 0 && (
                 <div className="glass-card" style={{ padding: '1.25rem', overflow: 'hidden' }}>

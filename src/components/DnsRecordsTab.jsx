@@ -28,6 +28,7 @@ const DnsRecordsTab = ({
     openConfirm
 }) => {
     const af = authFetch || fetch;
+    const [savingRecords, setSavingRecords] = useState(new Set());
     const [importLoading, setImportLoading] = useState(false);
     const [expandedRecords, setExpandedRecords] = useState(new Set());
     const [groupBy, setGroupBy] = useState(() => localStorage.getItem(GROUP_BY_KEY) || 'none');
@@ -122,8 +123,10 @@ const DnsRecordsTab = ({
 
     const toggleProxied = async (record) => {
         if (!['A', 'AAAA', 'CNAME'].includes(record.type)) return;
+        if (savingRecords.has(record.id)) return;
 
         const originalStatus = record.proxied;
+        setSavingRecords(prev => new Set(prev).add(record.id));
         setRecords(prev => prev.map(r =>
             r.id === record.id ? { ...r, proxied: !originalStatus } : r
         ));
@@ -152,6 +155,9 @@ const DnsRecordsTab = ({
             setRecords(prev => prev.map(r =>
                 r.id === record.id ? { ...r, proxied: originalStatus } : r
             ));
+            showToast(t('errorOccurred'), 'error');
+        } finally {
+            setSavingRecords(prev => { const next = new Set(prev); next.delete(record.id); return next; });
         }
     };
 
@@ -539,11 +545,12 @@ const DnsRecordsTab = ({
             </td>
             <td>
                 {['A', 'AAAA', 'CNAME'].includes(record.type) ? (
-                    <label className="toggle-switch">
+                    <label className="toggle-switch" style={savingRecords.has(record.id) ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
                         <input
                             type="checkbox"
                             checked={record.proxied}
                             onChange={() => toggleProxied(record)}
+                            disabled={savingRecords.has(record.id)}
                         />
                         <span className="slider"></span>
                     </label>
